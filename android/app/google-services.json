@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "556578707174",
+    "project_id": "pocketplan-3926e",
+    "storage_bucket": "pocketplan-3926e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:556578707174:android:da7c98b8ead2843dfccd27",
+        "android_client_info": {
+          "package_name": "com.example.pocket_plan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkYRDZZWySa2NoOjer5HrS1CBzKIO9hKk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:556578707174:android:6dab6b0b2a18407afccd27",
+        "android_client_info": {
+          "package_name": "com.kymee.pocketplan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkYRDZZWySa2NoOjer5HrS1CBzKIO9hKk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
