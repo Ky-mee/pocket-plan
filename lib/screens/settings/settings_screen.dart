@@ -22,6 +22,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   bool _notificationsEnabled = true;
   bool _darkMode = true;
   bool _biometricAvailable = false;
+  bool _carryForwardEnabled = true;
 
   UserModel? _userModel;
 
@@ -67,6 +68,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         _biometricEnabled = biometricEnabled;
         _notificationsEnabled = prefs['notificationsEnabled'] ?? true;
         _darkMode = ref.read(themeProvider.notifier).isDark;
+        _carryForwardEnabled = prefs['carryForwardEnabled'] ?? true;
       });
     }
   }
@@ -84,6 +86,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Future<void> _toggleDarkMode(bool value) async {
     await ref.read(themeProvider.notifier).toggleTheme();
     setState(() => _darkMode = value);
+  }
+
+  Future<void> _toggleCarryForward(bool value) async {
+    await _db.savePreferences(_userId, {'carryForwardEnabled': value});
+    setState(() => _carryForwardEnabled = value);
   }
 
   Future<void> _logout() async {
@@ -351,6 +358,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     onChanged: _toggleDarkMode,
                   ),
                   _settingsToggle(
+                    icon: Icons.savings_outlined,
+                    label: 'Carry Forward Balance',
+                    subtitle: 'Unused budget rolls into next month',
+                    color: const Color(0xFF00D4AA),
+                    value: _carryForwardEnabled,
+                    onChanged: _toggleCarryForward,
+                  ),
+                  _settingsToggle(
                     icon: Icons.notifications_outlined,
                     label: 'Budget Notifications',
                     subtitle: 'Get alerts when budget is exceeded',
@@ -363,23 +378,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     label: 'Currency',
                     value: _userModel?.currency ?? 'MYR',
                     color: const Color(0xFFFFB347),
-                    onTap: null,
-                  ),
-                ]),
-                const SizedBox(height: 20),
-                _buildSection('About', [
-                  _settingsTile(
-                    icon: Icons.info_outline_rounded,
-                    label: 'App Version',
-                    value: 'v1.0.0',
-                    color: const Color(0xFF9E9FBF),
-                    onTap: null,
-                  ),
-                  _settingsTile(
-                    icon: Icons.school_outlined,
-                    label: 'Developer',
-                    value: 'UTeM FYP 2025/26',
-                    color: const Color(0xFF9E9FBF),
                     onTap: null,
                   ),
                 ]),

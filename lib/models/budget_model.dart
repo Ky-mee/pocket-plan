@@ -1,11 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BucketData {
-  final double limit; // Max allowed to spend
+  final double limit; // Max allowed to spend (base + carried forward)
+  final double baseLimit; // Pure 50/30/20 share, excluding carry-forward
   final double spent; // How much spent so far
   final List<String> items; // User-defined sub-items
+  final double carriedForward; // Leftover balance rolled in from last month
 
-  BucketData({required this.limit, required this.spent, required this.items});
+  BucketData({
+    required this.limit,
+    required this.spent,
+    required this.items,
+    double? baseLimit,
+    this.carriedForward = 0.0,
+  }) : baseLimit = baseLimit ?? limit;
 
   double get remaining => limit - spent;
   double get percentageUsed =>
@@ -13,22 +21,40 @@ class BucketData {
   bool get isExceeded => spent > limit;
 
   factory BucketData.fromMap(Map<String, dynamic> data) {
+    final limit = (data['limit'] ?? 0.0).toDouble();
+    final carried = (data['carriedForward'] ?? 0.0).toDouble();
     return BucketData(
-      limit: (data['limit'] ?? 0.0).toDouble(),
+      limit: limit,
+      baseLimit: (data['baseLimit'] ?? (limit - carried)).toDouble(),
       spent: (data['spent'] ?? 0.0).toDouble(),
       items: List<String>.from(data['items'] ?? []),
+      carriedForward: carried,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {'limit': limit, 'spent': spent, 'items': items};
+    return {
+      'limit': limit,
+      'baseLimit': baseLimit,
+      'spent': spent,
+      'items': items,
+      'carriedForward': carriedForward,
+    };
   }
 
-  BucketData copyWith({double? limit, double? spent, List<String>? items}) {
+  BucketData copyWith({
+    double? limit,
+    double? baseLimit,
+    double? spent,
+    List<String>? items,
+    double? carriedForward,
+  }) {
     return BucketData(
       limit: limit ?? this.limit,
+      baseLimit: baseLimit ?? this.baseLimit,
       spent: spent ?? this.spent,
       items: items ?? this.items,
+      carriedForward: carriedForward ?? this.carriedForward,
     );
   }
 }
@@ -58,6 +84,18 @@ class BudgetModel {
   bool get isAnyExceeded =>
       commitments.isExceeded || spendings.isExceeded || savings.isExceeded;
 
+  // Total leftover balance eligible to be carried into next month —
+  // sum of each bucket's positive remaining amount (overspending is
+  // never carried forward as negative debt)
+  double get totalCarryForwardEligible {
+    double sum = 0;
+    for (final bucket in [commitments, spendings, savings]) {
+      final remaining = bucket.limit - bucket.spent;
+      if (remaining > 0) sum += remaining;
+    }
+    return sum;
+  }
+
   // Create a default budget from allowance using 50/30/20
   factory BudgetModel.fromAllowance({
     required String userId,
@@ -69,16 +107,19 @@ class BudgetModel {
       monthlyAllowance: allowance,
       commitments: BucketData(
         limit: allowance * 0.50,
+        baseLimit: allowance * 0.50,
         spent: 0,
         items: ['House / Rent', 'Bills & Utilities'],
       ),
       spendings: BucketData(
         limit: allowance * 0.30,
+        baseLimit: allowance * 0.30,
         spent: 0,
         items: ['Food & Drinks', 'Shopping'],
       ),
       savings: BucketData(
         limit: allowance * 0.20,
+        baseLimit: allowance * 0.20,
         spent: 0,
         items: ['Bank Savings'],
       ),

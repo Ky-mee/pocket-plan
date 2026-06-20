@@ -12,7 +12,10 @@ class BudgetResetService {
   // Check and reset budget if new month
   // Call this in main() or HomeScreen initState
   // ─────────────────────────────────────────
-  Future<void> checkAndResetIfNewMonth(String userId) async {
+  Future<void> checkAndResetIfNewMonth(
+    String userId, {
+    bool carryForwardEnabled = true,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     final currentMonth = DateFormat('yyyy-MM').format(DateTime.now());
     final lastResetMonth = prefs.getString('lastBudgetReset_$userId') ?? '';
@@ -27,8 +30,14 @@ class BudgetResetService {
     // Archive last month's data before resetting
     await _archiveLastMonth(userId, budget, lastResetMonth);
 
-    // Reset spent amounts to 0 for new month
-    await _resetBudgetSpent(userId, budget, currentMonth);
+    // Reset spent amounts to 0 for new month, optionally carrying
+    // forward any unspent balance from each bucket
+    await _resetBudgetSpent(
+      userId,
+      budget,
+      currentMonth,
+      carryForwardEnabled: carryForwardEnabled,
+    );
 
     // Save reset month to prevent double reset
     await prefs.setString('lastBudgetReset_$userId', currentMonth);
@@ -56,14 +65,17 @@ class BudgetResetService {
             'commitments': {
               'limit': budget.commitments.limit,
               'spent': budget.commitments.spent,
+              'carriedForward': _leftover(budget.commitments),
             },
             'spendings': {
               'limit': budget.spendings.limit,
               'spent': budget.spendings.spent,
+              'carriedForward': _leftover(budget.spendings),
             },
             'savings': {
               'limit': budget.savings.limit,
               'spent': budget.savings.spent,
+              'carriedForward': _leftover(budget.savings),
             },
             'totalSpent': budget.totalSpent,
             'archivedAt': Timestamp.now(),
@@ -73,18 +85,48 @@ class BudgetResetService {
     }
   }
 
+  // Leftover balance for a bucket — only positive (unspent) amounts
+  // are eligible to be carried forward. Overspending does not carry
+  // forward as negative debt onto the next month.
+  double _leftover(BucketData bucket) {
+    final remaining = bucket.limit - bucket.spent;
+    return remaining > 0 ? remaining : 0.0;
+  }
+
   // ─────────────────────────────────────────
-  // Reset spent to 0, keep limits intact
+  // Reset spent to 0, optionally carry forward leftover
+  // balance by increasing next month's limit per bucket
   // ─────────────────────────────────────────
   Future<void> _resetBudgetSpent(
     String userId,
     BudgetModel budget,
-    String newMonth,
-  ) async {
+    String newMonth, {
+    required bool carryForwardEnabled,
+  }) async {
+    final commitmentsCarry = carryForwardEnabled
+        ? _leftover(budget.commitments)
+        : 0.0;
+    final spendingsCarry = carryForwardEnabled
+        ? _leftover(budget.spendings)
+        : 0.0;
+    final savingsCarry = carryForwardEnabled ? _leftover(budget.savings) : 0.0;
+
     await _firestore.collection('budgets').doc(userId).update({
+      // Base limits stay tied to the 50/30/20 split of the allowance,
+      // carried-forward leftovers are added on top as a bonus limit
+      // for the new month.
+      'commitments.limit': budget.commitments.baseLimit + commitmentsCarry,
       'commitments.spent': 0.0,
+      'commitments.carriedForward': commitmentsCarry,
+
+      'spendings.limit': budget.spendings.baseLimit + spendingsCarry,
       'spendings.spent': 0.0,
+      'spendings.carriedForward': spendingsCarry,
+
+      'savings.limit': budget.savings.baseLimit + savingsCarry,
       'savings.spent': 0.0,
+      'savings.carriedForward': savingsCarry,
+
       'month': newMonth,
       'updatedAt': Timestamp.now(),
     });
@@ -111,7 +153,10 @@ class BudgetResetService {
   // ─────────────────────────────────────────
   // Manual reset (for testing or user request)
   // ─────────────────────────────────────────
-  Future<void> manualReset(String userId) async {
+  Future<void> manualReset(
+    String userId, {
+    bool carryForwardEnabled = true,
+  }) async {
     final budget = await _db.budgetStream(userId).first;
     if (budget == null) return;
 
@@ -121,7 +166,12 @@ class BudgetResetService {
     ).format(DateTime(DateTime.now().year, DateTime.now().month - 1));
 
     await _archiveLastMonth(userId, budget, lastMonth);
-    await _resetBudgetSpent(userId, budget, currentMonth);
+    await _resetBudgetSpent(
+      userId,
+      budget,
+      currentMonth,
+      carryForwardEnabled: carryForwardEnabled,
+    );
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('lastBudgetReset_$userId', currentMonth);
