@@ -45,7 +45,9 @@ class TransactionModel {
       subcategory: data['subcategory'] ?? '',
       description: data['description'] ?? '',
       date: (data['date'] as Timestamp).toDate(),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: data['createdAt'] != null
+          ? (data['createdAt'] as Timestamp).toDate()
+          : (data['date'] as Timestamp).toDate(),
     );
   }
 

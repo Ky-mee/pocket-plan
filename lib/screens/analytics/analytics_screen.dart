@@ -3,7 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
-import 'package:pocket_plan/models/prediction_model.dart';
+import 'package:pocket_plan/models/budget_model.dart';
+import 'package:pocket_plan/core/services/fuzzy_spending_predictor.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -57,15 +58,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               Expanded(
                 child: StreamBuilder<List<TransactionModel>>(
                   stream: _db.transactionsStream(_userId),
-                  builder: (context, snap) {
-                    final transactions = snap.data ?? [];
-                    return TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildOverviewTab(transactions),
-                        _buildCategoryTab(transactions),
-                        _buildPredictionTab(transactions),
-                      ],
+                  builder: (context, txSnap) {
+                    final transactions = txSnap.data ?? [];
+                    return StreamBuilder<BudgetModel?>(
+                      stream: _db.budgetStream(_userId),
+                      builder: (context, budgetSnap) {
+                        final budget = budgetSnap.data;
+                        final currentLimit = budget?.monthlyAllowance ?? 0.0;
+                        return TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildOverviewTab(transactions),
+                            _buildCategoryTab(transactions),
+                            _buildPredictionTab(transactions, currentLimit),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),
@@ -77,9 +85,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ─────────────────────────────────────────
   // HEADER
-  // ─────────────────────────────────────────
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -148,9 +154,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ─────────────────────────────────────────
   // OVERVIEW TAB
-  // ─────────────────────────────────────────
   Widget _buildOverviewTab(List<TransactionModel> transactions) {
     final expenses = transactions
         .where((t) => t.type == TransactionType.expense)
@@ -163,14 +167,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     final totalIncome = income.fold<double>(0, (s, t) => s + t.amount);
     final netSavings = totalIncome - totalExpense;
 
-    // Group by day for bar chart (last 7 days)
     final barData = _getLast7DaysData(transactions);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
       child: Column(
         children: [
-          // Summary cards
           Row(
             children: [
               Expanded(
@@ -200,12 +202,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             netSavings >= 0 ? const Color(0xFF6C63FF) : const Color(0xFFFF6B6B),
           ),
           const SizedBox(height: 20),
-
-          // Bar chart - last 7 days
           _buildBarChart(barData),
           const SizedBox(height: 20),
-
-          // Monthly comparison
           _buildMonthlyStats(transactions),
         ],
       ),
@@ -480,15 +478,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ─────────────────────────────────────────
   // CATEGORY TAB
-  // ─────────────────────────────────────────
   Widget _buildCategoryTab(List<TransactionModel> transactions) {
     final expenses = transactions
         .where((t) => t.type == TransactionType.expense)
         .toList();
 
-    // Group by category
     final Map<String, double> categoryTotals = {};
     for (final tx in expenses) {
       categoryTotals[tx.category] =
@@ -511,10 +506,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
       child: Column(
         children: [
-          // Pie chart
           _buildCategoryPieChart(sorted, totalExpense),
           const SizedBox(height: 20),
-          // Category list
           ...sorted.map((e) => _buildCategoryRow(e.key, e.value, totalExpense)),
         ],
       ),
@@ -660,105 +653,111 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // PREDICTION TAB
-  // ─────────────────────────────────────────
-  Widget _buildPredictionTab(List<TransactionModel> transactions) {
-    final expenses = transactions
-        .where((t) => t.type == TransactionType.expense)
-        .toList();
+  // PREDICTION TAB (Fuzzy Logic)
+  Widget _buildPredictionTab(
+    List<TransactionModel> transactions,
+    double currentLimit,
+  ) {
+    final nextMonth = FuzzySpendingPredictor.predictNextMonth(
+      transactions: transactions,
+      currentMonthLimit: currentLimit,
+    );
 
-    // Get monthly totals for last 3 months
-    final now = DateTime.now();
-    final List<double> monthlyTotals = [];
-    final List<String> monthLabels = [];
-
-    for (int i = 3; i >= 0; i--) {
-      final month = DateTime(now.year, now.month - i, 1);
-      final monthTotal = expenses
-          .where(
-            (t) => t.date.month == month.month && t.date.year == month.year,
-          )
-          .fold<double>(0, (s, t) => s + t.amount);
-      monthlyTotals.add(monthTotal);
-      monthLabels.add(_monthLabel(month));
-    }
-
-    final historicalTotals = monthlyTotals.sublist(0, 3);
-    final predicted = SpendingPredictor.movingAverage(historicalTotals);
-    final confidence = SpendingPredictor.confidenceScore(historicalTotals);
+    final sixMonths = FuzzySpendingPredictor.predictSixMonths(
+      transactions: transactions,
+      currentMonthLimit: currentLimit,
+    );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Prediction card
-          _buildPredictionCard(
-            predicted,
-            confidence.toDouble(),
-            monthLabels.last,
+          _buildNextMonthCard(nextMonth),
+          const SizedBox(height: 20),
+          const Text(
+            '6-Month Forecast',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Powered by fuzzy logic inference',
+            style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          _buildSixMonthChart(sixMonths),
+          const SizedBox(height: 16),
+          ...sixMonths.asMap().entries.map(
+            (e) => _buildMonthForecastRow(e.key + 1, e.value),
           ),
           const SizedBox(height: 20),
-          // Trend chart
-          _buildTrendChart(monthlyTotals, monthLabels, predicted),
-          const SizedBox(height: 20),
-          // Tips
-          _buildSpendingTips(predicted, historicalTotals),
+          _buildFuzzyExplainerCard(nextMonth),
         ],
       ),
     );
   }
 
-  Widget _buildPredictionCard(
-    double predicted,
-    double confidence,
-    String nextMonth,
-  ) {
-    final confidencePct = (confidence * 100).toStringAsFixed(0);
+  Widget _buildNextMonthCard(FuzzyForecastResult result) {
+    final isIncrease = result.adjustmentFactor > 0.02;
+    final isDecrease = result.adjustmentFactor < -0.02;
+    final color = isIncrease
+        ? const Color(0xFFFF6B6B)
+        : isDecrease
+        ? const Color(0xFF00D4AA)
+        : const Color(0xFF6C63FF);
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6C63FF), Color(0xFF4834D4)],
-        ),
+        gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C63FF).withOpacity(0.35),
+            color: color.withOpacity(0.35),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               const Icon(
                 Icons.auto_graph_rounded,
-                color: Colors.white70,
+                color: Colors.white,
                 size: 20,
               ),
               const SizedBox(width: 8),
               const Text(
-                'AI Spending Prediction',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
+                'Next Month Forecast',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '$confidencePct% confidence',
+                  '${result.confidenceScore.toStringAsFixed(0)}% confidence',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -766,302 +765,174 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'RM ${predicted.toStringAsFixed(2)}',
+            'RM ${result.predictedAmount.toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 42,
+              fontSize: 34,
               fontWeight: FontWeight.w800,
-              letterSpacing: -1,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Predicted spending for $nextMonth',
-            style: const TextStyle(color: Colors.white60, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.info_outline_rounded,
-                  color: Colors.white60,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Based on your last 3 months spending using moving average model.',
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrendChart(
-    List<double> totals,
-    List<String> labels,
-    double predicted,
-  ) {
-    final allValues = [...totals, predicted];
-    final maxY = allValues.fold(0.0, (a, b) => a > b ? a : b) * 1.3;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Spending Trend',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
-          Row(
+          Text(
+            '${result.adjustmentFactor >= 0 ? '+' : ''}${(result.adjustmentFactor * 100).toStringAsFixed(1)}% vs. historical average',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Container(width: 12, height: 3, color: const Color(0xFF6C63FF)),
-              const SizedBox(width: 4),
-              const Text(
-                'Actual',
-                style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 11),
-              ),
-              const SizedBox(width: 12),
-              Container(width: 12, height: 3, color: const Color(0xFFFFB347)),
-              const SizedBox(width: 4),
-              const Text(
-                'Predicted',
-                style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 11),
-              ),
+              _fuzzyTag('Trend: ${result.trendLabel}'),
+              _fuzzyTag('Volatility: ${result.volatilityLabel}'),
+              _fuzzyTag('Utilization: ${result.utilizationLabel}'),
             ],
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 180,
-            child: LineChart(
-              LineChartData(
-                maxY: maxY,
-                minY: 0,
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: Colors.white.withOpacity(0.05),
-                    strokeWidth: 1,
+        ],
+      ),
+    );
+  }
+
+  Widget _fuzzyTag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSixMonthChart(List<FuzzyForecastResult> results) {
+    return Container(
+      height: 180,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY:
+              (results
+                  .map((r) => r.predictedAmount)
+                  .reduce((a, b) => a > b ? a : b)) *
+              1.3,
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) => Text(
+                  'M${value.toInt() + 1}',
+                  style: const TextStyle(
+                    color: Color(0xFF9E9FBF),
+                    fontSize: 11,
                   ),
                 ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        final idx = value.toInt();
-                        if (idx >= 0 && idx < labels.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              labels[idx],
-                              style: const TextStyle(
-                                color: Color(0xFF4A4A6A),
-                                fontSize: 10,
-                              ),
-                            ),
-                          );
-                        }
-                        return const SizedBox();
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  // Actual line
-                  LineChartBarData(
-                    spots: totals
-                        .asMap()
-                        .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value))
-                        .toList(),
-                    isCurved: true,
-                    color: const Color(0xFF6C63FF),
-                    barWidth: 3,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, pct, bar, idx) =>
-                          FlDotCirclePainter(
-                            radius: 4,
-                            color: const Color(0xFF6C63FF),
-                            strokeWidth: 2,
-                            strokeColor: const Color(0xFF0F0F1A),
-                          ),
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: const Color(0xFF6C63FF).withOpacity(0.08),
-                    ),
-                  ),
-                  // Predicted point
-                  LineChartBarData(
-                    spots: [
-                      FlSpot(totals.length - 1, totals.last),
-                      FlSpot(totals.length.toDouble(), predicted),
-                    ],
-                    isCurved: false,
-                    color: const Color(0xFFFFB347),
-                    barWidth: 2,
-                    dashArray: [5, 5],
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, pct, bar, idx) =>
-                          FlDotCirclePainter(
-                            radius: idx == 1 ? 6 : 0,
-                            color: const Color(0xFFFFB347),
-                            strokeWidth: 2,
-                            strokeColor: const Color(0xFF0F0F1A),
-                          ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
-        ],
+          gridData: const FlGridData(show: false),
+          borderData: FlBorderData(show: false),
+          barGroups: results.asMap().entries.map((e) {
+            final opacity = 1.0 - (e.key * 0.1);
+            return BarChartGroupData(
+              x: e.key,
+              barRods: [
+                BarChartRodData(
+                  toY: e.value.predictedAmount,
+                  color: const Color(
+                    0xFF6C63FF,
+                  ).withOpacity(opacity.clamp(0.4, 1.0)),
+                  width: 28,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
-  Widget _buildSpendingTips(double predicted, List<double> historicalTotals) {
-    final avg = historicalTotals.isNotEmpty
-        ? historicalTotals.fold(0.0, (a, b) => a + b) / historicalTotals.length
-        : 0.0;
-    final trend = avg > 0 ? (predicted - avg) / avg * 100 : 0.0;
-    final isIncreasing = trend > 5;
-    final isDecreasing = trend < -5;
-
+  Widget _buildMonthForecastRow(int monthNum, FuzzyForecastResult result) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Smart Insights',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _tipCard(
-            icon: isIncreasing
-                ? Icons.trending_up_rounded
-                : isDecreasing
-                ? Icons.trending_down_rounded
-                : Icons.trending_flat_rounded,
-            color: isIncreasing
-                ? const Color(0xFFFF6B6B)
-                : isDecreasing
-                ? const Color(0xFF00D4AA)
-                : const Color(0xFF6C63FF),
-            title: isIncreasing
-                ? 'Spending may increase'
-                : isDecreasing
-                ? 'Spending may decrease'
-                : 'Spending is stable',
-            body: isIncreasing
-                ? 'Your predicted spending is ${trend.abs().toStringAsFixed(1)}% higher than your average. Consider reducing discretionary spending.'
-                : isDecreasing
-                ? 'Great job! Your predicted spending is ${trend.abs().toStringAsFixed(1)}% lower than average. Keep it up!'
-                : 'Your spending pattern is consistent. Maintain your current budget habits.',
-          ),
-          const SizedBox(height: 12),
-          _tipCard(
-            icon: Icons.lightbulb_outline_rounded,
-            color: const Color(0xFFFFB347),
-            title: 'Budget tip',
-            body:
-                'Use the AI Financial Advisor to get personalized advice on reducing your expenses and growing your savings.',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tipCard({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String body,
-  }) {
-    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6C63FF).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text(
+                'M$monthNum',
+                style: const TextStyle(
+                  color: Color(0xFF6C63FF),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 13,
+                  'RM ${result.predictedAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
                 Text(
-                  body,
+                  '${result.trendLabel} • ${result.volatilityLabel} volatility',
                   style: const TextStyle(
                     color: Color(0xFF9E9FBF),
-                    fontSize: 12,
-                    height: 1.4,
+                    fontSize: 11,
                   ),
                 ),
               ],
+            ),
+          ),
+          Text(
+            '${result.confidenceScore.toStringAsFixed(0)}%',
+            style: const TextStyle(
+              color: Color(0xFF4A4A6A),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -1069,9 +940,39 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ─────────────────────────────────────────
+  Widget _buildFuzzyExplainerCard(FuzzyForecastResult result) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6C63FF).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.lightbulb_outline_rounded,
+            color: Color(0xFF6C63FF),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'This forecast uses fuzzy logic to interpret your spending trend, volatility, and budget utilization as approximate linguistic terms (e.g. "Increasing", "High") rather than fixed numbers, producing a more human-like prediction than a simple average.',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // HELPERS
-  // ─────────────────────────────────────────
   List<Map<String, dynamic>> _getLast7DaysData(
     List<TransactionModel> transactions,
   ) {
@@ -1092,24 +993,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       result.add({'day': days[day.weekday - 1], 'expense': total});
     }
     return result;
-  }
-
-  String _monthLabel(DateTime date) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[date.month - 1];
   }
 
   Widget _buildEmptyState(String title, String subtitle) {
