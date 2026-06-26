@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:intl/intl.dart';
@@ -16,19 +15,18 @@ class BudgetResetService {
     String userId, {
     bool carryForwardEnabled = true,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
     final currentMonth = DateFormat('yyyy-MM').format(DateTime.now());
-    final lastResetMonth = prefs.getString('lastBudgetReset_$userId') ?? '';
-
-    // If already reset this month, do nothing
-    if (lastResetMonth == currentMonth) return;
 
     // Get current budget
     final budget = await _db.budgetStream(userId).first;
     if (budget == null) return;
 
+    // Use the budget's own 'month' field (stored in Firestore) instead
+    // of SharedPreferences, so the check survives reinstalls and new devices
+    if (budget.month == currentMonth) return; // already on the current month
+
     // Archive last month's data before resetting
-    await _archiveLastMonth(userId, budget, lastResetMonth);
+    await _archiveLastMonth(userId, budget, budget.month);
 
     // Reset spent amounts to 0 for new month, optionally carrying
     // forward any unspent balance from each bucket
@@ -38,9 +36,6 @@ class BudgetResetService {
       currentMonth,
       carryForwardEnabled: carryForwardEnabled,
     );
-
-    // Save reset month to prevent double reset
-    await prefs.setString('lastBudgetReset_$userId', currentMonth);
   }
 
   // ─────────────────────────────────────────
@@ -161,19 +156,13 @@ class BudgetResetService {
     if (budget == null) return;
 
     final currentMonth = DateFormat('yyyy-MM').format(DateTime.now());
-    final lastMonth = DateFormat(
-      'yyyy-MM',
-    ).format(DateTime(DateTime.now().year, DateTime.now().month - 1));
 
-    await _archiveLastMonth(userId, budget, lastMonth);
+    await _archiveLastMonth(userId, budget, budget.month);
     await _resetBudgetSpent(
       userId,
       budget,
       currentMonth,
       carryForwardEnabled: carryForwardEnabled,
     );
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('lastBudgetReset_$userId', currentMonth);
   }
 }
