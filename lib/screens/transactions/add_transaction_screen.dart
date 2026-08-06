@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
+import 'package:pocket_plan/widgets/atm_numpad.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -13,17 +14,17 @@ class AddTransactionScreen extends StatefulWidget {
 
 class _AddTransactionScreenState extends State<AddTransactionScreen>
     with TickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   final DatabaseService _db = DatabaseService();
 
   TransactionType _type = TransactionType.expense;
   BudgetCategory _budgetCategory = BudgetCategory.spending;
   String _selectedCategory = 'Food & Drinks';
-
-  // ── NEW: Income source (replaces category for income transactions) ──
   String _selectedIncomeSource = 'Allowance';
+
+  // ATM-style amount in cents
+  int _amountCents = 0;
+
   final List<String> _incomeSources = [
     'Allowance',
     'Part-time Job',
@@ -41,19 +42,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   late Animation<Offset> _slideAnimation;
 
   String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
+  double get _amountDouble => _amountCents / 100.0;
 
   @override
   void initState() {
     super.initState();
-
-    // Pre-fill type from route arguments if passed
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final arg = ModalRoute.of(context)?.settings.arguments;
-      if (arg == 'income') {
-        setState(() {
-          _type = TransactionType.income;
-        });
-      }
+      if (arg == 'income') setState(() => _type = TransactionType.income);
     });
 
     _slideController = AnimationController(
@@ -69,7 +65,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   @override
   void dispose() {
-    _amountController.dispose();
     _descriptionController.dispose();
     _slideController.dispose();
     super.dispose();
@@ -79,18 +74,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       TransactionCategories.categories[_budgetCategory] ?? [];
 
   Future<void> _saveTransaction() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_amountCents == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter an amount'),
+          backgroundColor: const Color(0xFFE53935),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      final amount = double.parse(_amountController.text);
-
       if (_type == TransactionType.income) {
-        // ── INCOME: auto-split into 50/30/20 buckets ──
-        await _saveIncomeTransaction(amount);
+        await _saveIncomeTransaction(_amountDouble);
       } else {
-        // ── EXPENSE: record normally under selected bucket/category ──
-        await _saveExpenseTransaction(amount);
+        await _saveExpenseTransaction(_amountDouble);
       }
 
       if (mounted) {
@@ -130,14 +134,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     }
   }
 
-  // ── INCOME: record transaction + auto-split budget limits ──
   Future<void> _saveIncomeTransaction(double amount) async {
-    // 1. Record income transaction with source as category
     final tx = TransactionModel(
       id: '',
       userId: _userId,
       type: TransactionType.income,
-      budgetCategory: BudgetCategory.savings, // neutral bucket for income
+      budgetCategory: BudgetCategory.savings,
       amount: amount,
       category: _selectedIncomeSource,
       description: _descriptionController.text.trim().isEmpty
@@ -148,21 +150,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
     await _db.addTransaction(tx);
 
-    // 2. Auto-split income into 50/30/20 budget limits
-    final commitmentsAdd = amount * 0.50;
-    final spendingsAdd = amount * 0.30;
-    final savingsAdd = amount * 0.20;
-
     await FirebaseFirestore.instance.collection('budgets').doc(_userId).update({
-      'commitments.limit': FieldValue.increment(commitmentsAdd),
-      'spendings.limit': FieldValue.increment(spendingsAdd),
-      'savings.limit': FieldValue.increment(savingsAdd),
+      'commitments.limit': FieldValue.increment(amount * 0.50),
+      'spendings.limit': FieldValue.increment(amount * 0.30),
+      'savings.limit': FieldValue.increment(amount * 0.20),
       'monthlyAllowance': FieldValue.increment(amount),
       'updatedAt': Timestamp.now(),
     });
   }
 
-  // ── EXPENSE: record transaction + deduct from bucket spent ──
   Future<void> _saveExpenseTransaction(double amount) async {
     final tx = TransactionModel(
       id: '',
@@ -199,6 +195,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isIncome = _type == TransactionType.income;
+    final color = isIncome ? const Color(0xFF00D4AA) : const Color(0xFFFF6B6B);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
       body: SlideTransition(
@@ -206,41 +205,47 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         child: SafeArea(
           child: Column(
             children: [
-              _buildHeader(),
+              _buildHeader(isIncome),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 20),
-                        _buildTypeToggle(),
-                        const SizedBox(height: 24),
-                        _buildAmountField(),
-                        const SizedBox(height: 20),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTypeToggle(),
+                      const SizedBox(height: 20),
 
-                        // ── Show different inputs based on type ──
-                        if (_type == TransactionType.income) ...[
-                          _buildIncomeSourceSelector(),
-                          const SizedBox(height: 16),
-                          _buildIncomeSplitPreview(),
-                        ] else ...[
-                          _buildBucketSelector(),
-                          const SizedBox(height: 20),
-                          _buildCategorySelector(),
-                        ],
+                      // ATM amount display
+                      AtmAmountDisplay(valueCents: _amountCents, color: color),
+                      const SizedBox(height: 16),
 
-                        const SizedBox(height: 20),
-                        _buildDescriptionField(),
-                        const SizedBox(height: 20),
-                        _buildDatePicker(),
-                        const SizedBox(height: 32),
-                        _buildSaveButton(),
-                        const SizedBox(height: 32),
+                      // ATM numpad
+                      AtmNumpad(
+                        valueCents: _amountCents,
+                        onValueChanged: (val) =>
+                            setState(() => _amountCents = val),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Income source or expense category
+                      if (isIncome) ...[
+                        _buildIncomeSourceSelector(),
+                        const SizedBox(height: 16),
+                        _buildIncomeSplitPreview(),
+                      ] else ...[
+                        _buildBucketSelector(),
+                        const SizedBox(height: 16),
+                        _buildCategorySelector(),
                       ],
-                    ),
+
+                      const SizedBox(height: 16),
+                      _buildDescriptionField(isIncome, color),
+                      const SizedBox(height: 16),
+                      _buildDatePicker(color),
+                      const SizedBox(height: 24),
+                      _buildSaveButton(isIncome, color),
+                      const SizedBox(height: 32),
+                    ],
                   ),
                 ),
               ),
@@ -251,7 +256,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isIncome) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -274,7 +279,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           ),
           const SizedBox(width: 16),
           Text(
-            _type == TransactionType.income ? 'Add Income' : 'Add Expense',
+            isIncome ? 'Add Income' : 'Add Expense',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -323,7 +328,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       child: GestureDetector(
         onTap: () => setState(() {
           _type = type;
-          // Reset fields when switching type
+          _amountCents = 0;
           _selectedCategory = 'Food & Drinks';
           _budgetCategory = BudgetCategory.spending;
           _selectedIncomeSource = 'Allowance';
@@ -362,74 +367,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  Widget _buildAmountField() {
-    final color = _type == TransactionType.expense
-        ? const Color(0xFFFF6B6B)
-        : const Color(0xFF00D4AA);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Amount (RM)',
-          style: TextStyle(
-            color: Color(0xFF9E9FBF),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _amountController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: TextStyle(
-            color: color,
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-          ),
-          validator: (v) {
-            if (v == null || v.isEmpty) return 'Amount is required';
-            if (double.tryParse(v) == null) return 'Enter a valid amount';
-            if (double.parse(v) <= 0) return 'Amount must be greater than 0';
-            return null;
-          },
-          decoration: InputDecoration(
-            hintText: '0.00',
-            hintStyle: TextStyle(
-              color: color.withOpacity(0.3),
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
-            prefixText: 'RM ',
-            prefixStyle: TextStyle(
-              color: color.withOpacity(0.6),
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-            filled: true,
-            fillColor: color.withOpacity(0.08),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: color, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: Color(0xFFE53935),
-                width: 1.5,
-              ),
-            ),
-            contentPadding: const EdgeInsets.all(20),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── NEW: Income source selector ──
   Widget _buildIncomeSourceSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,12 +423,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  // ── NEW: 50/30/20 split preview for income ──
   Widget _buildIncomeSplitPreview() {
-    final amount = double.tryParse(_amountController.text) ?? 0;
-    final commitments = amount * 0.50;
-    final spending = amount * 0.30;
-    final savings = amount * 0.20;
+    final commitments = _amountDouble * 0.50;
+    final spending = _amountDouble * 0.30;
+    final savings = _amountDouble * 0.20;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -503,15 +438,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.auto_awesome_rounded,
                 color: Color(0xFF00D4AA),
                 size: 16,
               ),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Auto 50/30/20 Split',
                 style: TextStyle(
                   color: Color(0xFF00D4AA),
@@ -704,7 +639,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  Widget _buildDescriptionField() {
+  Widget _buildDescriptionField(bool isIncome, Color color) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -717,13 +652,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           ),
         ),
         const SizedBox(height: 8),
-        TextFormField(
+        TextField(
           controller: _descriptionController,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           maxLines: 2,
-          onChanged: (_) => setState(() {}), // rebuild split preview
           decoration: InputDecoration(
-            hintText: _type == TransactionType.income
+            hintText: isIncome
                 ? 'e.g. Monthly allowance from parents...'
                 : 'e.g. Lunch at Pak Ali, Monthly rent...',
             hintStyle: TextStyle(
@@ -732,13 +666,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             ),
             prefixIcon: Padding(
               padding: const EdgeInsets.only(bottom: 24),
-              child: Icon(
-                Icons.notes_rounded,
-                color: _type == TransactionType.income
-                    ? const Color(0xFF00D4AA)
-                    : const Color(0xFF6C63FF),
-                size: 20,
-              ),
+              child: Icon(Icons.notes_rounded, color: color, size: 20),
             ),
             filled: true,
             fillColor: Colors.white.withOpacity(0.06),
@@ -748,19 +676,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.08),
-                width: 1,
-              ),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: _type == TransactionType.income
-                    ? const Color(0xFF00D4AA)
-                    : const Color(0xFF6C63FF),
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: color, width: 1.5),
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
@@ -769,7 +689,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  Widget _buildDatePicker() {
+  Widget _buildDatePicker(Color color) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -793,13 +713,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  color: _type == TransactionType.income
-                      ? const Color(0xFF00D4AA)
-                      : const Color(0xFF6C63FF),
-                  size: 20,
-                ),
+                Icon(Icons.calendar_today_outlined, color: color, size: 20),
                 const SizedBox(width: 12),
                 Text(
                   '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
@@ -818,20 +732,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  Widget _buildSaveButton() {
-    final isIncome = _type == TransactionType.income;
-    final color = isIncome ? const Color(0xFF00D4AA) : const Color(0xFFFF6B6B);
-    final gradientColors = isIncome
-        ? [const Color(0xFF00D4AA), const Color(0xFF00F5C8)]
-        : [const Color(0xFFFF6B6B), const Color(0xFFFF8E8E)];
-
+  Widget _buildSaveButton(bool isIncome, Color color) {
     return GestureDetector(
       onTap: _isLoading ? null : _saveTransaction,
       child: Container(
         width: double.infinity,
         height: 56,
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: gradientColors),
+          gradient: LinearGradient(
+            colors: isIncome
+                ? [const Color(0xFF00D4AA), const Color(0xFF00F5C8)]
+                : [const Color(0xFFFF6B6B), const Color(0xFFFF8E8E)],
+          ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(

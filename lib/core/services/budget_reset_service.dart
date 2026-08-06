@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:intl/intl.dart';
+import 'package:pocket_plan/core/services/notification_service.dart';
 
 class BudgetResetService {
   final DatabaseService _db = DatabaseService();
@@ -36,6 +37,42 @@ class BudgetResetService {
       currentMonth,
       carryForwardEnabled: carryForwardEnabled,
     );
+
+    await NotificationService().showLocalNotification(
+      id: 10,
+      title: '🔄 Budget Reset for ${_monthName(currentMonth)}',
+      body: carryForwardEnabled
+          ? 'Your budget has been reset. Unused balance has been carried forward to this month.'
+          : 'Your budget has been reset for the new month. Good luck!',
+    );
+
+    await NotificationService().showLocalNotification(
+      id: 10,
+      title: '🔄 Budget Reset for ${_monthName(currentMonth)}',
+      body: carryForwardEnabled
+          ? 'Your budget has been reset. Unused balance has been carried forward to this month.'
+          : 'Your budget has been reset for the new month. Good luck!',
+    );
+  }
+
+  String _monthName(String yyyyMM) {
+    final parts = yyyyMM.split('-');
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final idx = int.tryParse(parts[1] ?? '1') ?? 1;
+    return '${months[idx - 1]} ${parts[0]}';
   }
 
   // ─────────────────────────────────────────

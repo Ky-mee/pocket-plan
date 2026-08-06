@@ -17,6 +17,7 @@ import 'package:pocket_plan/providers/theme_provider.dart';
 import 'package:pocket_plan/screens/onboarding/onboarding_screen.dart';
 import 'package:pocket_plan/screens/help/help_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:pocket_plan/core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,8 @@ void main() async {
   await dotenv.load(fileName: '.env');
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await NotificationService().initialize();
 
   runApp(const ProviderScope(child: PocketPlanApp()));
 }

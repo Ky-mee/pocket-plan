@@ -24,7 +24,7 @@ class NotificationService {
 
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _showLocalNotification(
+      showLocalNotification(
         title: message.notification?.title ?? 'PocketPlan',
         body: message.notification?.body ?? '',
       );
@@ -37,7 +37,7 @@ class NotificationService {
   }
 
   // Show a local notification immediately
-  Future<void> _showLocalNotification({
+  Future<void> showLocalNotification({
     required String title,
     required String body,
     int id = 0,
@@ -60,7 +60,7 @@ class NotificationService {
   // Check budget and fire alert if any bucket is exceeded
   Future<void> checkBudgetAlerts(BudgetModel budget) async {
     if (budget.commitments.isExceeded) {
-      await _showLocalNotification(
+      await showLocalNotification(
         id: 1,
         title: '⚠️ Commitments Budget Exceeded',
         body:
@@ -69,7 +69,7 @@ class NotificationService {
     }
 
     if (budget.spendings.isExceeded) {
-      await _showLocalNotification(
+      await showLocalNotification(
         id: 2,
         title: '⚠️ Spending Budget Exceeded',
         body:
@@ -79,7 +79,7 @@ class NotificationService {
 
     // Warn at 80% usage even before exceeding
     if (!budget.spendings.isExceeded && budget.spendings.percentageUsed >= 80) {
-      await _showLocalNotification(
+      await showLocalNotification(
         id: 3,
         title:
             '📊 Spending Budget at ${budget.spendings.percentageUsed.toStringAsFixed(0)}%',

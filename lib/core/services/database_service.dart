@@ -4,6 +4,7 @@ import 'package:pocket_plan/models/user_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/prediction_model.dart';
+import 'package:pocket_plan/core/services/notification_service.dart';
 
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -82,6 +83,15 @@ class DatabaseService {
           ? transaction.amount
           : -transaction.amount, // subtract if income
     );
+
+    final budget = await budgetStream(transaction.userId).first;
+    if (budget != null) {
+      final prefs = await getPreferences(transaction.userId);
+      final notificationsEnabled = prefs['notificationsEnabled'] ?? true;
+      if (notificationsEnabled) {
+        await NotificationService().checkBudgetAlerts(budget);
+      }
+    }
 
     return ref.id;
   }
