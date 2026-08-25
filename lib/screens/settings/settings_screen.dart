@@ -5,6 +5,8 @@ import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/user_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/providers/theme_provider.dart';
+import 'package:pocket_plan/providers/accent_color_provider.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -94,33 +96,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _logout() async {
+    final colors = context.colors;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E3A),
+        backgroundColor: colors.surfaceAlt,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Sign Out',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to sign out?',
-          style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 14),
+          style: TextStyle(color: colors.textSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF9E9FBF)),
+              style: TextStyle(color: colors.textSecondary),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
+            child: Text(
               'Sign Out',
               style: TextStyle(
-                color: Color(0xFFFF6B6B),
+                color: colors.danger,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -140,40 +146,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   void _showEditNameDialog() {
+    final colors = context.colors;
     final ctrl = TextEditingController(text: _userModel?.name ?? '');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E3A),
+        backgroundColor: colors.surfaceAlt,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Edit Name',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         content: TextField(
           controller: ctrl,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
             hintText: 'Your full name',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+            hintStyle: TextStyle(color: colors.textTertiary),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.06),
+            fillColor: colors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF6C63FF)),
+              borderSide: BorderSide(color: colors.accent),
             ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF9E9FBF)),
+              style: TextStyle(color: colors.textSecondary),
             ),
           ),
           TextButton(
@@ -187,10 +197,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 if (ctx.mounted) Navigator.pop(ctx);
               }
             },
-            child: const Text(
+            child: Text(
               'Save',
               style: TextStyle(
-                color: Color(0xFF6C63FF),
+                color: colors.accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -201,43 +211,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   void _showEditAllowanceDialog() {
+    final colors = context.colors;
     final ctrl = TextEditingController(
       text: _userModel?.monthlyAllowance.toString() ?? '',
     );
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E3A),
+        backgroundColor: colors.surfaceAlt,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Edit Monthly Allowance',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
             prefixText: 'RM ',
-            prefixStyle: const TextStyle(color: Color(0xFF6C63FF)),
+            prefixStyle: TextStyle(color: colors.accent),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.06),
+            fillColor: colors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF6C63FF)),
+              borderSide: BorderSide(color: colors.accent),
             ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF9E9FBF)),
+              style: TextStyle(color: colors.textSecondary),
             ),
           ),
           TextButton(
@@ -249,10 +263,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 if (ctx.mounted) Navigator.pop(ctx);
               }
             },
-            child: const Text(
+            child: Text(
               'Save',
               style: TextStyle(
-                color: Color(0xFF6C63FF),
+                color: colors.accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -264,8 +278,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -283,14 +298,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     icon: Icons.person_outline_rounded,
                     label: 'Full Name',
                     value: _userModel?.name ?? '-',
-                    color: const Color(0xFF6C63FF),
+                    color: colors.accent,
                     onTap: _showEditNameDialog,
                   ),
                   _settingsTile(
                     icon: Icons.email_outlined,
                     label: 'Email',
                     value: FirebaseAuth.instance.currentUser?.email ?? '-',
-                    color: const Color(0xFF6C63FF),
+                    color: colors.accent,
                     onTap: null,
                   ),
                   _settingsTile(
@@ -298,14 +313,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     label: 'Monthly Allowance',
                     value:
                         'RM ${_userModel?.monthlyAllowance.toStringAsFixed(2) ?? '0.00'}',
-                    color: const Color(0xFF6C63FF),
+                    color: colors.accent,
                     onTap: _showEditAllowanceDialog,
                   ),
                   _settingsTile(
                     icon: Icons.help_outline_rounded,
                     label: 'Help & Guide',
                     value: '',
-                    color: const Color(0xFF6C63FF),
+                    color: colors.accent,
                     onTap: () => Navigator.of(context).pushNamed('/help'),
                   ),
                 ]),
@@ -316,7 +331,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       icon: Icons.fingerprint_rounded,
                       label: 'Biometric Login',
                       subtitle: 'Use fingerprint or face ID to sign in',
-                      color: const Color(0xFF00D4AA),
+                      color: colors.success,
                       value: _biometricEnabled,
                       onChanged: _toggleBiometric,
                     ),
@@ -324,7 +339,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     icon: Icons.lock_outline_rounded,
                     label: 'Change Password',
                     value: '',
-                    color: const Color(0xFF00D4AA),
+                    color: colors.success,
                     onTap: () async {
                       final email = FirebaseAuth.instance.currentUser?.email;
                       if (email != null) {
@@ -335,7 +350,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                               content: const Text(
                                 'Reset link sent to your email!',
                               ),
-                              backgroundColor: const Color(0xFF00D4AA),
+                              backgroundColor: colors.success,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -353,15 +368,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     icon: Icons.dark_mode_outlined,
                     label: 'Dark Mode',
                     subtitle: 'Toggle dark/light appearance',
-                    color: const Color(0xFFFFB347),
+                    color: colors.warning,
                     value: _darkMode,
                     onChanged: _toggleDarkMode,
                   ),
+                  _accentColorRow(),
                   _settingsToggle(
                     icon: Icons.savings_outlined,
                     label: 'Carry Forward Balance',
                     subtitle: 'Unused budget rolls into next month',
-                    color: const Color(0xFF00D4AA),
+                    color: colors.success,
                     value: _carryForwardEnabled,
                     onChanged: _toggleCarryForward,
                   ),
@@ -369,7 +385,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     icon: Icons.notifications_outlined,
                     label: 'Budget Notifications',
                     subtitle: 'Get alerts when budget is exceeded',
-                    color: const Color(0xFFFFB347),
+                    color: colors.warning,
                     value: _notificationsEnabled,
                     onChanged: _toggleNotifications,
                   ),
@@ -377,7 +393,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     icon: Icons.currency_exchange_rounded,
                     label: 'Currency',
                     value: _userModel?.currency ?? 'MYR',
-                    color: const Color(0xFFFFB347),
+                    color: colors.warning,
                     onTap: null,
                   ),
                 ]),
@@ -396,6 +412,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // HEADER
   // ─────────────────────────────────────────
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Row(
@@ -406,21 +423,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: colors.textPrimary,
                 size: 18,
               ),
             ),
           ),
           const SizedBox(width: 16),
-          const Text(
+          Text(
             'Settings',
             style: TextStyle(
-              color: Colors.white,
+              color: colors.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -434,6 +451,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // PROFILE CARD
   // ─────────────────────────────────────────
   Widget _buildProfileCard() {
+    final colors = context.colors;
     final user = FirebaseAuth.instance.currentUser;
     final name = _userModel?.name ?? user?.displayName ?? 'User';
     final email = user?.email ?? '';
@@ -442,15 +460,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF6C63FF), Color(0xFF4834D4)],
+          colors: [colors.accent, const Color(0xFF4834D4)],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C63FF).withOpacity(0.35),
+            color: colors.accent.withOpacity(0.35),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -542,13 +560,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // SECTION
   // ─────────────────────────────────────────
   Widget _buildSection(String title, List<Widget> tiles) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFF9E9FBF),
+          style: TextStyle(
+            color: colors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.0,
@@ -557,9 +576,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
+            color: colors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: colors.border),
           ),
           child: Column(
             children: tiles
@@ -570,11 +589,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     children: [
                       e.value,
                       if (e.key < tiles.length - 1)
-                        Divider(
-                          color: Colors.white.withOpacity(0.05),
-                          height: 1,
-                          indent: 56,
-                        ),
+                        Divider(color: colors.border, height: 1, indent: 56),
                     ],
                   ),
                 )
@@ -592,6 +607,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     required Color color,
     required VoidCallback? onTap,
   }) {
+    final colors = context.colors;
     return GestureDetector(
       onTap: onTap,
       child: Padding(
@@ -611,8 +627,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -621,13 +637,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             if (value.isNotEmpty)
               Text(
                 value,
-                style: const TextStyle(color: Color(0xFF9E9FBF), fontSize: 13),
+                style: TextStyle(color: colors.textSecondary, fontSize: 13),
               ),
             if (onTap != null) ...[
               const SizedBox(width: 6),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFF4A4A6A),
+                color: colors.textTertiary,
                 size: 18,
               ),
             ],
@@ -645,6 +661,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -665,18 +682,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF4A4A6A),
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: colors.textTertiary, fontSize: 11),
                 ),
               ],
             ),
@@ -686,8 +700,118 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             onChanged: onChanged,
             activeColor: color,
             activeTrackColor: color.withOpacity(0.3),
-            inactiveThumbColor: const Color(0xFF4A4A6A),
-            inactiveTrackColor: Colors.white.withOpacity(0.08),
+            inactiveThumbColor: colors.textTertiary,
+            inactiveTrackColor: colors.border,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _accentColorRow() {
+    final colors = context.colors;
+    final currentAccent = ref.watch(accentColorProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: currentAccent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.palette_outlined,
+                  color: currentAccent,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Accent Color',
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'Personalize the app\'s highlight color',
+                      style: TextStyle(
+                        color: colors.textTertiary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (currentAccent.value !=
+                  AccentColorNotifier.defaultAccent.value)
+                GestureDetector(
+                  onTap: () =>
+                      ref.read(accentColorProvider.notifier).resetToDefault(),
+                  child: Text(
+                    'Reset',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: accentColorPresets.map((swatch) {
+              final isSelected = swatch.value == currentAccent.value;
+              return GestureDetector(
+                onTap: () =>
+                    ref.read(accentColorProvider.notifier).setAccent(swatch),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: swatch,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? colors.textPrimary
+                          : Colors.transparent,
+                      width: 2.5,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: swatch.withOpacity(0.5),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: isSelected
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        )
+                      : null,
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -698,25 +822,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // LOGOUT BUTTON
   // ─────────────────────────────────────────
   Widget _buildLogoutButton() {
+    final colors = context.colors;
     return GestureDetector(
       onTap: _logout,
       child: Container(
         width: double.infinity,
         height: 56,
         decoration: BoxDecoration(
-          color: const Color(0xFFFF6B6B).withOpacity(0.1),
+          color: colors.danger.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFFF6B6B).withOpacity(0.3)),
+          border: Border.all(color: colors.danger.withOpacity(0.3)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.logout_rounded, color: Color(0xFFFF6B6B), size: 20),
-            SizedBox(width: 10),
+            Icon(Icons.logout_rounded, color: colors.danger, size: 20),
+            const SizedBox(width: 10),
             Text(
               'Sign Out',
               style: TextStyle(
-                color: Color(0xFFFF6B6B),
+                color: colors.danger,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),

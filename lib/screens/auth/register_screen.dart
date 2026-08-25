@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/services/auth_services.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -71,7 +72,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_friendlyError(e.toString())),
-            backgroundColor: const Color(0xFFE53935),
+            backgroundColor: context.colors.danger,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -125,7 +126,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: const Color(0xFFE53935),
+        backgroundColor: context.colors.danger,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -134,13 +135,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1A2E), Color(0xFF16213E), Color(0xFF0F3460)],
+            colors: [colors.background, colors.surfaceAlt, colors.surface],
           ),
         ),
         child: SafeArea(
@@ -173,6 +175,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
@@ -188,12 +191,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_ios_new,
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   size: 18,
                 ),
               ),
@@ -205,12 +208,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_ios_new,
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   size: 18,
                 ),
               ),
@@ -221,17 +224,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             children: [
               Text(
                 _currentStep == 0 ? 'Create Account' : 'Financial Setup',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: colors.textPrimary,
                 ),
               ),
               Text(
                 _currentStep == 0
                     ? 'Join PocketPlan today'
                     : 'Set your monthly budget',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF9E9FBF)),
+                style: TextStyle(fontSize: 13, color: colors.textSecondary),
               ),
             ],
           ),
@@ -241,6 +244,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Widget _buildStepIndicator() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Row(
@@ -249,9 +253,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           Expanded(
             child: Container(
               height: 2,
-              color: _currentStep >= 1
-                  ? const Color(0xFF6C63FF)
-                  : Colors.white.withOpacity(0.1),
+              color: _currentStep >= 1 ? colors.accent : colors.border,
             ),
           ),
           _stepDot(1, 'Financial'),
@@ -261,6 +263,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Widget _stepDot(int step, String label) {
+    final colors = context.colors;
     final isActive = _currentStep >= step;
     return Column(
       children: [
@@ -269,13 +272,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           height: 32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isActive
-                ? const Color(0xFF6C63FF)
-                : Colors.white.withOpacity(0.1),
+            color: isActive ? colors.accent : colors.surface,
             border: Border.all(
-              color: isActive
-                  ? const Color(0xFF6C63FF)
-                  : Colors.white.withOpacity(0.2),
+              color: isActive ? colors.accent : colors.border,
               width: 2,
             ),
           ),
@@ -285,7 +284,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 : Text(
                     '${step + 1}',
                     style: TextStyle(
-                      color: isActive ? Colors.white : const Color(0xFF9E9FBF),
+                      color: isActive ? Colors.white : colors.textSecondary,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
@@ -297,7 +296,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           label,
           style: TextStyle(
             fontSize: 11,
-            color: isActive ? const Color(0xFF6C63FF) : const Color(0xFF4A4A6A),
+            color: isActive ? colors.accent : colors.textTertiary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -306,6 +305,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Widget _buildStep1() {
+    final colors = context.colors;
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -341,7 +341,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               _obscurePassword
                   ? Icons.visibility_outlined
                   : Icons.visibility_off_outlined,
-              color: const Color(0xFF9E9FBF),
+              color: colors.textSecondary,
               size: 20,
             ),
             onPressed: () =>
@@ -365,7 +365,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               _obscureConfirm
                   ? Icons.visibility_outlined
                   : Icons.visibility_off_outlined,
-              color: const Color(0xFF9E9FBF),
+              color: colors.textSecondary,
               size: 20,
             ),
             onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
@@ -389,6 +389,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Widget _buildStep2() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -397,24 +398,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF6C63FF).withOpacity(0.12),
+            color: colors.accent.withOpacity(0.12),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3)),
+            border: Border.all(color: colors.accent.withOpacity(0.3)),
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.info_outline_rounded,
-                color: Color(0xFF6C63FF),
-                size: 20,
-              ),
+              Icon(Icons.info_outline_rounded, color: colors.accent, size: 20),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'PocketPlan uses the 50/30/20 rule to split your allowance automatically.',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white.withOpacity(0.8),
+                    color: colors.textPrimary.withOpacity(0.8),
                     height: 1.4,
                   ),
                 ),
@@ -453,41 +450,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Widget _buildBudgetPreview() {
+    final colors = context.colors;
     final amount = double.tryParse(_allowanceController.text) ?? 0;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: colors.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Your Budget Breakdown',
             style: TextStyle(
-              color: Colors.white,
+              color: colors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
           ),
           const SizedBox(height: 12),
-          _budgetRow(
-            'Commitments (50%)',
-            amount * 0.5,
-            const Color(0xFF6C63FF),
-          ),
+          _budgetRow('Commitments (50%)', amount * 0.5, colors.accent),
           const SizedBox(height: 8),
-          _budgetRow('Spending (30%)', amount * 0.3, const Color(0xFF00D4AA)),
+          _budgetRow('Spending (30%)', amount * 0.3, colors.success),
           const SizedBox(height: 8),
-          _budgetRow('Savings (20%)', amount * 0.2, const Color(0xFFFFB347)),
+          _budgetRow('Savings (20%)', amount * 0.2, colors.warning),
         ],
       ),
     );
   }
 
   Widget _budgetRow(String label, double amount, Color color) {
+    final colors = context.colors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -501,7 +496,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(color: Color(0xFF9E9FBF), fontSize: 13),
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
             ),
           ],
         ),
@@ -527,13 +522,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF9E9FBF),
+          style: TextStyle(
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -545,47 +541,35 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           keyboardType: keyboardType,
           validator: validator,
           onChanged: (_) => setState(() {}),
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          style: TextStyle(color: colors.textPrimary, fontSize: 15),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(
-              color: Colors.white.withOpacity(0.25),
-              fontSize: 14,
-            ),
-            prefixIcon: Icon(icon, color: const Color(0xFF6C63FF), size: 20),
+            hintStyle: TextStyle(color: colors.textTertiary, fontSize: 14),
+            prefixIcon: Icon(icon, color: colors.accent, size: 20),
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: Colors.white.withOpacity(0.06),
+            fillColor: colors.surface.withOpacity(0.5),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.08),
-                width: 1,
-              ),
+              borderSide: BorderSide(color: colors.border, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFF6C63FF),
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: colors.accent, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFE53935), width: 1),
+              borderSide: BorderSide(color: colors.danger, width: 1),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFFE53935),
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: colors.danger, width: 1.5),
             ),
-            errorStyle: const TextStyle(color: Color(0xFFE53935)),
+            errorStyle: TextStyle(color: colors.danger),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
@@ -602,6 +586,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     IconData? icon,
     bool isLoading = false,
   }) {
+    final colors = context.colors;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -610,16 +595,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         decoration: BoxDecoration(
           gradient: onTap == null
               ? null
-              : const LinearGradient(
-                  colors: [Color(0xFF6C63FF), Color(0xFF9C8DFF)],
+              : LinearGradient(
+                  colors: [colors.accent, colors.accent.withOpacity(0.7)],
                 ),
-          color: onTap == null ? Colors.white.withOpacity(0.1) : null,
+          color: onTap == null ? colors.surface : null,
           borderRadius: BorderRadius.circular(16),
           boxShadow: onTap == null
               ? null
               : [
                   BoxShadow(
-                    color: const Color(0xFF6C63FF).withOpacity(0.4),
+                    color: colors.accent.withOpacity(0.4),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -659,19 +644,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Widget _buildLoginLink() {
+    final colors = context.colors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           'Already have an account? ',
-          style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 14),
+          style: TextStyle(color: colors.textSecondary, fontSize: 14),
         ),
         GestureDetector(
           onTap: () => Navigator.of(context).pushReplacementNamed('/login'),
-          child: const Text(
+          child: Text(
             'Sign In',
             style: TextStyle(
-              color: Color(0xFF6C63FF),
+              color: colors.accent,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 // ─────────────────────────────────────────
 // ATM-STYLE NUMPAD WIDGET
@@ -97,6 +98,7 @@ class _NumKey extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -105,26 +107,24 @@ class _NumKey extends StatelessWidget {
         margin: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: isSpecial
-              ? const Color(0xFFFF6B6B).withOpacity(0.1)
-              : Colors.white.withOpacity(0.07),
+              ? colors.danger.withOpacity(0.1)
+              : colors.surface.withOpacity(0.6),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSpecial
-                ? const Color(0xFFFF6B6B).withOpacity(0.25)
-                : Colors.white.withOpacity(0.08),
+            color: isSpecial ? colors.danger.withOpacity(0.25) : colors.border,
           ),
         ),
         child: Center(
           child: isIcon
-              ? const Icon(
+              ? Icon(
                   Icons.backspace_outlined,
-                  color: Color(0xFF9E9FBF),
+                  color: colors.textSecondary,
                   size: 22,
                 )
               : Text(
                   label,
                   style: TextStyle(
-                    color: isSpecial ? const Color(0xFFFF6B6B) : Colors.white,
+                    color: isSpecial ? colors.danger : colors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/services/auth_services.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -108,8 +110,21 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!onboardingDone) {
       Navigator.of(context).pushReplacementNamed('/onboarding');
-    } else if (user != null) {
-      Navigator.of(context).pushReplacementNamed('/home');
+      return;
+    }
+
+    if (user != null) {
+      final authService = AuthService();
+      final biometricAvailable = await authService.isBiometricAvailable();
+      final biometricEnabled = await authService.isBiometricEnabled(user.uid);
+
+      if (!mounted) return;
+
+      if (biometricAvailable && biometricEnabled) {
+        Navigator.of(context).pushReplacementNamed('/biometric');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
     } else {
       Navigator.of(context).pushReplacementNamed('/login');
     }
@@ -126,19 +141,16 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1A1A2E), // deep navy
-              Color(0xFF16213E), // midnight blue
-              Color(0xFF0F3460), // dark blue
-            ],
+            colors: [colors.background, colors.surfaceAlt, colors.surface],
           ),
         ),
         child: Stack(
@@ -164,21 +176,21 @@ class _SplashScreenState extends State<SplashScreen>
                             height: 110,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFF6C63FF).withOpacity(0.15),
+                              color: colors.accent.withOpacity(0.15),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFF6C63FF,
-                                  ).withOpacity(0.3 * _pulse.value),
+                                  color: colors.accent.withOpacity(
+                                    0.3 * _pulse.value,
+                                  ),
                                   blurRadius: 40 * _pulse.value,
                                   spreadRadius: 10 * _pulse.value,
                                 ),
                               ],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.account_balance_wallet_rounded,
                               size: 56,
-                              color: Color(0xFF6C63FF),
+                              color: colors.accent,
                             ),
                           ),
                         ),
@@ -193,12 +205,12 @@ class _SplashScreenState extends State<SplashScreen>
                     position: _textSlide,
                     child: FadeTransition(
                       opacity: _textOpacity,
-                      child: const Text(
+                      child: Text(
                         'PocketPlan',
                         style: TextStyle(
                           fontSize: 42,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: colors.textPrimary,
                           letterSpacing: -1.0,
                         ),
                       ),
@@ -210,11 +222,11 @@ class _SplashScreenState extends State<SplashScreen>
                   // Tagline
                   FadeTransition(
                     opacity: _taglineOpacity,
-                    child: const Text(
+                    child: Text(
                       'Smart Finance for Students',
                       style: TextStyle(
                         fontSize: 15,
-                        color: Color(0xFF9E9FBF),
+                        color: colors.textSecondary,
                         letterSpacing: 0.5,
                         fontWeight: FontWeight.w400,
                       ),
@@ -232,7 +244,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          const Color(0xFF6C63FF).withOpacity(0.7),
+                          colors.accent.withOpacity(0.7),
                         ),
                       ),
                     ),
@@ -248,12 +260,12 @@ class _SplashScreenState extends State<SplashScreen>
               right: 0,
               child: FadeTransition(
                 opacity: _taglineOpacity,
-                child: const Text(
+                child: Text(
                   'v1.0.0',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF4A4A6A),
+                    color: colors.textTertiary,
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -266,6 +278,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildBackgroundDecor() {
+    final colors = context.colors;
     return Stack(
       children: [
         // Top right circle
@@ -277,7 +290,7 @@ class _SplashScreenState extends State<SplashScreen>
             height: 280,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF6C63FF).withOpacity(0.06),
+              color: colors.accent.withOpacity(0.06),
             ),
           ),
         ),
@@ -290,7 +303,7 @@ class _SplashScreenState extends State<SplashScreen>
             height: 320,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF00D4AA).withOpacity(0.05),
+              color: colors.success.withOpacity(0.05),
             ),
           ),
         ),
@@ -301,9 +314,9 @@ class _SplashScreenState extends State<SplashScreen>
           child: Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF6C63FF),
+              color: colors.accent,
             ),
           ),
         ),
@@ -315,7 +328,7 @@ class _SplashScreenState extends State<SplashScreen>
             height: 5,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF00D4AA).withOpacity(0.6),
+              color: colors.success.withOpacity(0.6),
             ),
           ),
         ),

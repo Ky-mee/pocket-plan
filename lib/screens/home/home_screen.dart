@@ -6,6 +6,7 @@ import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/core/services/budget_reset_service.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -58,8 +59,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -106,6 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // TOP BAR
   // ─────────────────────────────────────────
   Widget _buildTopBar() {
+    final colors = context.colors;
     final user = FirebaseAuth.instance.currentUser;
     final name = user?.displayName?.split(' ').first ?? 'there';
     final hour = DateTime.now().hour;
@@ -125,12 +128,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             children: [
               Text(
                 '$greeting,',
-                style: const TextStyle(color: Color(0xFF9E9FBF), fontSize: 14),
+                style: TextStyle(color: colors.textSecondary, fontSize: 14),
               ),
               Text(
                 name,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colors.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                 ),
@@ -144,12 +147,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.notifications_outlined,
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   size: 20,
                 ),
               ),
@@ -162,8 +165,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   height: 42,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6C63FF), Color(0xFF9C8DFF)],
+                    gradient: LinearGradient(
+                      colors: [colors.accent, colors.accent.withOpacity(0.7)],
                     ),
                   ),
                   child: Center(
@@ -191,6 +194,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // BALANCE CARD
   // ─────────────────────────────────────────
   Widget _buildBalanceCard(BudgetModel? budget) {
+    final colors = context.colors;
     final allowance = budget?.monthlyAllowance ?? 0;
     final spent = budget?.totalSpent ?? 0;
     final remaining = allowance - spent;
@@ -200,15 +204,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF6C63FF), Color(0xFF4834D4)],
+          colors: [colors.accent, const Color(0xFF4834D4)],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C63FF).withOpacity(0.4),
+            color: colors.accent.withOpacity(0.4),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -271,7 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               value: progress,
               backgroundColor: Colors.white.withOpacity(0.2),
               valueColor: AlwaysStoppedAnimation<Color>(
-                progress > 0.85 ? const Color(0xFFFF6B6B) : Colors.white,
+                progress > 0.85 ? colors.danger : Colors.white,
               ),
               minHeight: 6,
             ),
@@ -287,9 +291,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Text(
                 '${(progress * 100).toStringAsFixed(0)}% used',
                 style: TextStyle(
-                  color: progress > 0.85
-                      ? const Color(0xFFFF6B6B)
-                      : Colors.white60,
+                  color: progress > 0.85 ? colors.danger : Colors.white60,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -305,13 +307,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // BUDGET RING (50/30/20)
   // ─────────────────────────────────────────
   Widget _buildBudgetRing(BudgetModel? budget) {
+    final colors = context.colors;
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,20 +322,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 '50 / 30 / 20 Budget',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               GestureDetector(
                 onTap: () => Navigator.of(context).pushNamed('/budget'),
-                child: const Text(
+                child: Text(
                   'Manage',
                   style: TextStyle(
-                    color: Color(0xFF6C63FF),
+                    color: colors.accent,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -348,10 +351,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 width: 120,
                 height: 120,
                 child: budget == null
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Color(0xFF6C63FF),
+                          color: colors.accent,
                         ),
                       )
                     : PieChart(
@@ -361,19 +364,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           sections: [
                             PieChartSectionData(
                               value: budget.commitments.limit,
-                              color: const Color(0xFF6C63FF),
+                              color: colors.accent,
                               radius: 22,
                               showTitle: false,
                             ),
                             PieChartSectionData(
                               value: budget.spendings.limit,
-                              color: const Color(0xFF00D4AA),
+                              color: colors.success,
                               radius: 22,
                               showTitle: false,
                             ),
                             PieChartSectionData(
                               value: budget.savings.limit,
-                              color: const Color(0xFFFFB347),
+                              color: colors.warning,
                               radius: 22,
                               showTitle: false,
                             ),
@@ -391,7 +394,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       percent: '50%',
                       spent: budget?.commitments.spent ?? 0,
                       limit: budget?.commitments.limit ?? 0,
-                      color: const Color(0xFF6C63FF),
+                      color: colors.accent,
                       isExceeded: budget?.commitments.isExceeded ?? false,
                     ),
                     const SizedBox(height: 12),
@@ -400,7 +403,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       percent: '30%',
                       spent: budget?.spendings.spent ?? 0,
                       limit: budget?.spendings.limit ?? 0,
-                      color: const Color(0xFF00D4AA),
+                      color: colors.success,
                       isExceeded: budget?.spendings.isExceeded ?? false,
                     ),
                     const SizedBox(height: 12),
@@ -409,7 +412,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       percent: '20%',
                       spent: budget?.savings.spent ?? 0,
                       limit: budget?.savings.limit ?? 0,
-                      color: const Color(0xFFFFB347),
+                      color: colors.warning,
                       isExceeded: false,
                     ),
                   ],
@@ -430,6 +433,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     required Color color,
     required bool isExceeded,
   }) {
+    final colors = context.colors;
     final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,25 +454,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Color(0xFF9E9FBF),
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
               ],
             ),
             Row(
               children: [
                 if (isExceeded)
-                  const Icon(
+                  Icon(
                     Icons.warning_amber_rounded,
-                    color: Color(0xFFFF6B6B),
+                    color: colors.danger,
                     size: 12,
                   ),
                 Text(
                   'RM ${spent.toStringAsFixed(0)}/${limit.toStringAsFixed(0)}',
                   style: TextStyle(
-                    color: isExceeded ? const Color(0xFFFF6B6B) : Colors.white,
+                    color: isExceeded ? colors.danger : colors.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -482,9 +483,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: progress,
-            backgroundColor: Colors.white.withOpacity(0.08),
+            backgroundColor: colors.border,
             valueColor: AlwaysStoppedAnimation<Color>(
-              isExceeded ? const Color(0xFFFF6B6B) : color,
+              isExceeded ? colors.danger : color,
             ),
             minHeight: 4,
           ),
@@ -497,15 +498,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // QUICK ACTIONS
   // ─────────────────────────────────────────
   Widget _buildQuickActions() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Quick Actions',
             style: TextStyle(
-              color: Colors.white,
+              color: colors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -516,7 +518,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               _quickActionCard(
                 icon: Icons.add_circle_outline_rounded,
                 label: 'Add\nExpense',
-                color: const Color(0xFFFF6B6B),
+                color: colors.danger,
                 onTap: () => Navigator.of(
                   context,
                 ).pushNamed('/add-transaction', arguments: 'expense'),
@@ -525,7 +527,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               _quickActionCard(
                 icon: Icons.arrow_downward_rounded,
                 label: 'Add\nIncome',
-                color: const Color(0xFF00D4AA),
+                color: colors.success,
                 onTap: () => Navigator.of(
                   context,
                 ).pushNamed('/add-transaction', arguments: 'income'),
@@ -534,7 +536,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               _quickActionCard(
                 icon: Icons.bar_chart_rounded,
                 label: 'Analytics',
-                color: const Color(0xFFFFB347),
+                color: colors.warning,
                 onTap: () => Navigator.of(context).pushNamed('/analytics'),
               ),
             ],
@@ -545,18 +547,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               _quickActionCard(
                 icon: Icons.smart_toy_outlined,
                 label: 'AI\nAdvisor',
-                color: const Color(0xFF6C63FF),
+                color: colors.accent,
                 onTap: () => Navigator.of(context).pushNamed('/ai-advisor'),
               ),
               const SizedBox(width: 12),
               _quickActionCard(
                 icon: Icons.location_on_rounded,
                 label: 'Food\nNearby',
-                color: const Color(0xFF00D4AA),
+                color: colors.success,
                 onTap: () => Navigator.of(context).pushNamed('/nearby-places'),
               ),
               const SizedBox(width: 12),
-              Expanded(child: SizedBox()),
+              const Expanded(child: SizedBox()),
             ],
           ),
         ],
@@ -605,6 +607,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // RECENT TRANSACTIONS
   // ─────────────────────────────────────────
   Widget _buildRecentTransactions(List<TransactionModel> transactions) {
+    final colors = context.colors;
     final recent = transactions.take(5).toList();
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -614,20 +617,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Recent Transactions',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               GestureDetector(
                 onTap: () => Navigator.of(context).pushNamed('/transactions'),
-                child: const Text(
+                child: Text(
                   'See all',
                   style: TextStyle(
-                    color: Color(0xFF6C63FF),
+                    color: colors.accent,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -646,25 +649,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildEmptyTransactions() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         children: [
           Icon(
             Icons.receipt_long_outlined,
             size: 48,
-            color: Colors.white.withOpacity(0.2),
+            color: colors.textTertiary,
           ),
           const SizedBox(height: 12),
           Text(
             'No transactions yet',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: colors.textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -672,10 +676,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           const SizedBox(height: 4),
           Text(
             'Tap + to add your first transaction',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
-              fontSize: 12,
-            ),
+            style: TextStyle(color: colors.textTertiary, fontSize: 12),
           ),
         ],
       ),
@@ -683,6 +684,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _transactionItem(TransactionModel tx) {
+    final colors = context.colors;
     final isExpense = tx.type == TransactionType.expense;
     final categoryColor = _categoryColor(tx.budgetCategory);
     final categoryIcon = _categoryIcon(tx.budgetCategory);
@@ -691,9 +693,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         children: [
@@ -713,8 +715,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 Text(
                   tx.description.isNotEmpty ? tx.description : tx.category,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -724,10 +726,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: 2),
                 Text(
                   tx.category,
-                  style: const TextStyle(
-                    color: Color(0xFF9E9FBF),
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
               ],
             ),
@@ -738,9 +737,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Text(
                 '${isExpense ? '-' : '+'}RM ${tx.amount.toStringAsFixed(2)}',
                 style: TextStyle(
-                  color: isExpense
-                      ? const Color(0xFFFF6B6B)
-                      : const Color(0xFF00D4AA),
+                  color: isExpense ? colors.danger : colors.success,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -748,7 +745,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               const SizedBox(height: 2),
               Text(
                 _formatDate(tx.date),
-                style: const TextStyle(color: Color(0xFF9E9FBF), fontSize: 11),
+                style: TextStyle(color: colors.textSecondary, fontSize: 11),
               ),
             ],
           ),
@@ -761,10 +758,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // BOTTOM NAV
   // ─────────────────────────────────────────
   Widget _buildBottomNav() {
+    final colors = context.colors;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: BottomAppBar(
         color: Colors.transparent,
@@ -809,6 +807,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool active,
     VoidCallback onTap,
   ) {
+    final colors = context.colors;
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -816,14 +815,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         children: [
           Icon(
             icon,
-            color: active ? const Color(0xFF6C63FF) : const Color(0xFF4A4A6A),
+            color: active ? colors.accent : colors.textTertiary,
             size: 22,
           ),
           const SizedBox(height: 3),
           Text(
             label,
             style: TextStyle(
-              color: active ? const Color(0xFF6C63FF) : const Color(0xFF4A4A6A),
+              color: active ? colors.accent : colors.textTertiary,
               fontSize: 10,
               fontWeight: active ? FontWeight.w600 : FontWeight.w400,
             ),
@@ -837,9 +836,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // FAB
   // ─────────────────────────────────────────
   Widget _buildFAB() {
+    final colors = context.colors;
     return FloatingActionButton(
       onPressed: () => Navigator.of(context).pushNamed('/add-transaction'),
-      backgroundColor: const Color(0xFF6C63FF),
+      backgroundColor: colors.accent,
       elevation: 4,
       child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
     );
@@ -876,13 +876,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Color _categoryColor(BudgetCategory category) {
+    final colors = context.colors;
     switch (category) {
       case BudgetCategory.commitment:
-        return const Color(0xFF6C63FF);
+        return colors.accent;
       case BudgetCategory.spending:
-        return const Color(0xFF00D4AA);
+        return colors.success;
       case BudgetCategory.savings:
-        return const Color(0xFFFFB347);
+        return colors.warning;
     }
   }
 

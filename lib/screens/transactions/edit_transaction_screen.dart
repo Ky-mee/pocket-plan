@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class EditTransactionScreen extends StatefulWidget {
   final TransactionModel transaction;
@@ -32,7 +33,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   @override
   void initState() {
     super.initState();
-    // Pre-fill with existing transaction data
     _type = widget.transaction.type;
     _budgetCategory = widget.transaction.budgetCategory;
     _selectedCategory = widget.transaction.category;
@@ -71,10 +71,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
       final oldTx = widget.transaction;
       final newAmount = double.parse(_amountController.text);
 
-      // Step 1: Reverse old transaction's budget impact
       await _reverseOldImpact(oldTx);
 
-      // Step 2: Update the transaction document
       await FirebaseFirestore.instance
           .collection('transactions')
           .doc(oldTx.id)
@@ -87,14 +85,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
             'date': Timestamp.fromDate(_selectedDate),
           });
 
-      // Step 3: Apply new transaction's budget impact
       await _applyNewImpact(newAmount);
 
       if (mounted) {
+        final colors = context.colors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Transaction updated!'),
-            backgroundColor: const Color(0xFF00D4AA),
+            backgroundColor: colors.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -105,10 +103,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
       }
     } catch (e) {
       if (mounted) {
+        final colors = context.colors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: const Color(0xFFE53935),
+            backgroundColor: colors.danger,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -121,7 +120,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     }
   }
 
-  // Reverse old transaction's effect on budget
   Future<void> _reverseOldImpact(TransactionModel tx) async {
     final reverseAmount = tx.type == TransactionType.expense
         ? -tx.amount
@@ -137,7 +135,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     });
   }
 
-  // Apply new transaction's effect on budget
   Future<void> _applyNewImpact(double newAmount) async {
     final applyAmount = _type == TransactionType.expense
         ? newAmount
@@ -154,16 +151,25 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Future<void> _pickDate() async {
+    final colors = context.colors;
+    final isDark = colors.background.computeLuminance() < 0.5;
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF6C63FF),
-            surface: Color(0xFF1A1A2E),
+        data: (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
+          colorScheme: ColorScheme(
+            brightness: isDark ? Brightness.dark : Brightness.light,
+            primary: colors.accent,
+            onPrimary: Colors.white,
+            secondary: colors.accent,
+            onSecondary: Colors.white,
+            error: colors.danger,
+            onError: Colors.white,
+            surface: colors.surface,
+            onSurface: colors.textPrimary,
           ),
         ),
         child: child!,
@@ -177,8 +183,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: SlideTransition(
         position: _slideAnimation,
         child: SafeArea(
@@ -221,6 +228,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -231,21 +239,21 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: colors.textPrimary,
                 size: 18,
               ),
             ),
           ),
           const SizedBox(width: 16),
-          const Text(
+          Text(
             'Edit Transaction',
             style: TextStyle(
-              color: Colors.white,
+              color: colors.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -256,10 +264,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildTypeToggle() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -268,13 +277,13 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
             TransactionType.expense,
             'Expense',
             Icons.arrow_upward_rounded,
-            const Color(0xFFFF6B6B),
+            colors.danger,
           ),
           _typeTab(
             TransactionType.income,
             'Income',
             Icons.arrow_downward_rounded,
-            const Color(0xFF00D4AA),
+            colors.success,
           ),
         ],
       ),
@@ -287,6 +296,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     IconData icon,
     Color color,
   ) {
+    final colors = context.colors;
     final isSelected = _type == type;
     return Expanded(
       child: GestureDetector(
@@ -315,14 +325,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
             children: [
               Icon(
                 icon,
-                color: isSelected ? color : const Color(0xFF4A4A6A),
+                color: isSelected ? color : colors.textTertiary,
                 size: 18,
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? color : const Color(0xFF4A4A6A),
+                  color: isSelected ? color : colors.textTertiary,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
@@ -335,16 +345,17 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildAmountField() {
+    final colors = context.colors;
     final color = _type == TransactionType.expense
-        ? const Color(0xFFFF6B6B)
-        : const Color(0xFF00D4AA);
+        ? colors.danger
+        : colors.success;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Amount (RM)',
           style: TextStyle(
-            color: Color(0xFF9E9FBF),
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -395,13 +406,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildBucketSelector() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Budget Bucket',
           style: TextStyle(
-            color: Color(0xFF9E9FBF),
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -412,20 +424,12 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
             _bucketChip(
               BudgetCategory.commitment,
               'Commitments',
-              const Color(0xFF6C63FF),
+              colors.accent,
             ),
             const SizedBox(width: 8),
-            _bucketChip(
-              BudgetCategory.spending,
-              'Spending',
-              const Color(0xFF00D4AA),
-            ),
+            _bucketChip(BudgetCategory.spending, 'Spending', colors.success),
             const SizedBox(width: 8),
-            _bucketChip(
-              BudgetCategory.savings,
-              'Savings',
-              const Color(0xFFFFB347),
-            ),
+            _bucketChip(BudgetCategory.savings, 'Savings', colors.warning),
           ],
         ),
       ],
@@ -433,6 +437,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _bucketChip(BudgetCategory bucket, String label, Color color) {
+    final colors = context.colors;
     final isSelected = _budgetCategory == bucket;
     return Expanded(
       child: GestureDetector(
@@ -444,21 +449,17 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected
-                ? color.withOpacity(0.15)
-                : Colors.white.withOpacity(0.04),
+            color: isSelected ? color.withOpacity(0.15) : colors.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected
-                  ? color.withOpacity(0.5)
-                  : Colors.white.withOpacity(0.08),
+              color: isSelected ? color.withOpacity(0.5) : colors.border,
             ),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isSelected ? color : const Color(0xFF4A4A6A),
+              color: isSelected ? color : colors.textTertiary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -469,13 +470,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildCategorySelector() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Category',
           style: TextStyle(
-            color: Color(0xFF9E9FBF),
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -484,9 +486,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.06),
+            color: colors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: colors.border),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -494,11 +496,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
                   ? _selectedCategory
                   : _currentCategories.first,
               isExpanded: true,
-              dropdownColor: const Color(0xFF1A1A2E),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              icon: const Icon(
+              dropdownColor: colors.surface,
+              style: TextStyle(color: colors.textPrimary, fontSize: 14),
+              icon: Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF9E9FBF),
+                color: colors.textSecondary,
               ),
               items: _currentCategories
                   .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
@@ -512,13 +514,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildDescriptionField() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Description (Optional)',
           style: TextStyle(
-            color: Color(0xFF9E9FBF),
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -526,41 +529,28 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
         const SizedBox(height: 8),
         TextFormField(
           controller: _descriptionController,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: TextStyle(color: colors.textPrimary, fontSize: 14),
           maxLines: 2,
           decoration: InputDecoration(
             hintText: 'e.g. Lunch at Pak Ali, Monthly rent...',
-            hintStyle: TextStyle(
-              color: Colors.white.withOpacity(0.25),
-              fontSize: 13,
-            ),
-            prefixIcon: const Padding(
-              padding: EdgeInsets.only(bottom: 24),
-              child: Icon(
-                Icons.notes_rounded,
-                color: Color(0xFF6C63FF),
-                size: 20,
-              ),
+            hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Icon(Icons.notes_rounded, color: colors.accent, size: 20),
             ),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.06),
+            fillColor: colors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.08),
-                width: 1,
-              ),
+              borderSide: BorderSide(color: colors.border, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFF6C63FF),
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: colors.accent, width: 1.5),
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
@@ -570,13 +560,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildDatePicker() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Date',
           style: TextStyle(
-            color: Color(0xFF9E9FBF),
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -587,26 +578,26 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: colors.border),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_today_outlined,
-                  color: Color(0xFF6C63FF),
+                  color: colors.accent,
                   size: 20,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 14),
                 ),
                 const Spacer(),
-                const Icon(
+                Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: Color(0xFF9E9FBF),
+                  color: colors.textSecondary,
                 ),
               ],
             ),
@@ -617,20 +608,17 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   }
 
   Widget _buildSaveButton() {
+    final colors = context.colors;
     final color = _type == TransactionType.expense
-        ? const Color(0xFFFF6B6B)
-        : const Color(0xFF00D4AA);
+        ? colors.danger
+        : colors.success;
     return GestureDetector(
       onTap: _isLoading ? null : _saveEdit,
       child: Container(
         width: double.infinity,
         height: 56,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: _type == TransactionType.expense
-                ? [const Color(0xFFFF6B6B), const Color(0xFFFF8E8E)]
-                : [const Color(0xFF00D4AA), const Color(0xFF00F5C8)],
-          ),
+          gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(

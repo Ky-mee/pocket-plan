@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/services/auth_services.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -107,7 +108,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: const Color(0xFFE53935),
+        backgroundColor: context.colors.danger,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -137,13 +138,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1A2E), Color(0xFF16213E), Color(0xFF0F3460)],
+            colors: [colors.background, colors.surfaceAlt, colors.surface],
           ),
         ),
         child: SafeArea(
@@ -189,6 +191,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildTopSection() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -198,42 +201,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           height: 56,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: const Color(0xFF6C63FF).withOpacity(0.15),
-            border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3)),
+            color: colors.accent.withOpacity(0.15),
+            border: Border.all(color: colors.accent.withOpacity(0.3)),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.account_balance_wallet_rounded,
-            color: Color(0xFF6C63FF),
+            color: colors.accent,
             size: 28,
           ),
         ),
         const SizedBox(height: 24),
-        const Text(
+        Text(
           'Welcome back',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: colors.textPrimary,
             letterSpacing: -0.5,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Sign in to manage your finances',
-          style: TextStyle(fontSize: 15, color: Color(0xFF9E9FBF)),
+          style: TextStyle(fontSize: 15, color: colors.textSecondary),
         ),
       ],
     );
   }
 
   Widget _buildEmailField() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Email',
           style: TextStyle(
-            color: Color(0xFF9E9FBF),
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -242,7 +246,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          style: TextStyle(color: colors.textPrimary, fontSize: 15),
           validator: (v) {
             if (v == null || v.isEmpty) return 'Email is required';
             if (!v.contains('@')) return 'Enter a valid email';
@@ -255,13 +259,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildPasswordField() {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Password',
           style: TextStyle(
-            color: Color(0xFF9E9FBF),
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -270,7 +275,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         TextFormField(
           controller: _passwordController,
           obscureText: _obscurePassword,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          style: TextStyle(color: colors.textPrimary, fontSize: 15),
           validator: (v) =>
               v == null || v.isEmpty ? 'Password is required' : null,
           decoration: _inputDecoration(
@@ -281,7 +286,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 _obscurePassword
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
-                color: const Color(0xFF9E9FBF),
+                color: colors.textSecondary,
                 size: 20,
               ),
               onPressed: () =>
@@ -294,14 +299,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildForgotPassword() {
+    final colors = context.colors;
     return Align(
       alignment: Alignment.centerRight,
       child: GestureDetector(
         onTap: () => _showForgotPasswordDialog(),
-        child: const Text(
+        child: Text(
           'Forgot Password?',
           style: TextStyle(
-            color: Color(0xFF6C63FF),
+            color: colors.accent,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -311,28 +317,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _showForgotPasswordDialog() {
+    final colors = context.colors;
     final emailCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E3A),
+        backgroundColor: colors.surfaceAlt,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Reset Password',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Enter your email and we\'ll send a reset link.',
-              style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 13),
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: emailCtrl,
               keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colors.textPrimary),
               decoration: _inputDecoration(
                 'your@email.com',
                 Icons.email_outlined,
@@ -343,9 +353,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF9E9FBF)),
+              style: TextStyle(color: colors.textSecondary),
             ),
           ),
           TextButton(
@@ -357,7 +367,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: const Text('Reset link sent! Check your email.'),
-                      backgroundColor: const Color(0xFF00D4AA),
+                      backgroundColor: colors.success,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -367,10 +377,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 }
               }
             },
-            child: const Text(
+            child: Text(
               'Send',
               style: TextStyle(
-                color: Color(0xFF6C63FF),
+                color: colors.accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -381,19 +391,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildLoginButton() {
+    final colors = context.colors;
     return GestureDetector(
       onTap: _isLoading ? null : _loginWithEmail,
       child: Container(
         width: double.infinity,
         height: 56,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6C63FF), Color(0xFF9C8DFF)],
+          gradient: LinearGradient(
+            colors: [colors.accent, colors.accent.withOpacity(0.7)],
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF6C63FF).withOpacity(0.4),
+              color: colors.accent.withOpacity(0.4),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -424,64 +435,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildDivider() {
+    final colors = context.colors;
     return Row(
       children: [
-        Expanded(
-          child: Divider(color: Colors.white.withOpacity(0.1), height: 1),
-        ),
+        Expanded(child: Divider(color: colors.border, height: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'or',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: colors.textTertiary, fontSize: 13),
           ),
         ),
-        Expanded(
-          child: Divider(color: Colors.white.withOpacity(0.1), height: 1),
-        ),
+        Expanded(child: Divider(color: colors.border, height: 1)),
       ],
     );
   }
 
   Widget _buildBiometricButton() {
+    final colors = context.colors;
     return GestureDetector(
       onTap: _isBiometricLoading ? null : _loginWithBiometric,
       child: Container(
         width: double.infinity,
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: colors.surface.withOpacity(0.5),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: colors.border),
         ),
         child: Center(
           child: _isBiometricLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 22,
                   height: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF6C63FF),
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(colors.accent),
                   ),
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.fingerprint_rounded,
-                      color: Color(0xFF6C63FF),
+                      color: colors.accent,
                       size: 24,
                     ),
                     const SizedBox(width: 10),
                     Text(
                       'Sign in with Biometrics',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: colors.textPrimary.withOpacity(0.8),
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                       ),
@@ -494,19 +498,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildRegisterLink() {
+    final colors = context.colors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           "Don't have an account? ",
-          style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 14),
+          style: TextStyle(color: colors.textSecondary, fontSize: 14),
         ),
         GestureDetector(
           onTap: () => Navigator.of(context).pushReplacementNamed('/register'),
-          child: const Text(
+          child: Text(
             'Sign Up',
             style: TextStyle(
-              color: Color(0xFF6C63FF),
+              color: colors.accent,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -521,34 +526,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     IconData icon, {
     Widget? suffixIcon,
   }) {
+    final colors = context.colors;
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: Colors.white.withOpacity(0.25), fontSize: 14),
-      prefixIcon: Icon(icon, color: const Color(0xFF6C63FF), size: 20),
+      hintStyle: TextStyle(color: colors.textTertiary, fontSize: 14),
+      prefixIcon: Icon(icon, color: colors.accent, size: 20),
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: Colors.white.withOpacity(0.06),
+      fillColor: colors.surface.withOpacity(0.5),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.08), width: 1),
+        borderSide: BorderSide(color: colors.border, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF6C63FF), width: 1.5),
+        borderSide: BorderSide(color: colors.accent, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFE53935), width: 1),
+        borderSide: BorderSide(color: colors.danger, width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFE53935), width: 1.5),
+        borderSide: BorderSide(color: colors.danger, width: 1.5),
       ),
-      errorStyle: const TextStyle(color: Color(0xFFE53935)),
+      errorStyle: TextStyle(color: colors.danger),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }

@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:pocket_plan/core/services/location_service.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class NearbyPlacesScreen extends StatefulWidget {
   const NearbyPlacesScreen({super.key});
@@ -106,8 +107,6 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen>
     });
 
     try {
-      // Broader query covering more Malaysian food place types
-      // including way elements for larger establishments
       final query =
           '''
 [out:json][timeout:30];
@@ -150,7 +149,6 @@ out center;
 
           final tags = e['tags'] as Map<String, dynamic>;
 
-          // Handle both node (direct lat/lon) and way (center lat/lon)
           double lat;
           double lon;
           if (e['type'] == 'way' && e['center'] != null) {
@@ -160,7 +158,7 @@ out center;
             lat = (e['lat'] as num).toDouble();
             lon = (e['lon'] as num).toDouble();
           } else {
-            continue; // skip if no coordinates
+            continue;
           }
 
           final distance = LocationService.distanceBetween(
@@ -192,7 +190,6 @@ out center;
           );
         }
 
-        // Sort by distance
         places.sort((a, b) => a.distance.compareTo(b.distance));
 
         if (mounted) {
@@ -287,8 +284,9 @@ out center;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -318,6 +316,7 @@ out center;
   }
 
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -328,32 +327,32 @@ out center;
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: colors.textPrimary,
                 size: 18,
               ),
             ),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Nearby Food Places',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   'Affordable options near you',
-                  style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 12),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
               ],
             ),
@@ -366,25 +365,19 @@ out center;
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.15),
+                color: colors.accent.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF6C63FF).withOpacity(0.3),
-                ),
+                border: Border.all(color: colors.accent.withOpacity(0.3)),
               ),
               child: _isLoadingPlaces
-                  ? const Padding(
-                      padding: EdgeInsets.all(10),
+                  ? Padding(
+                      padding: const EdgeInsets.all(10),
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Color(0xFF6C63FF),
+                        color: colors.accent,
                       ),
                     )
-                  : const Icon(
-                      Icons.refresh_rounded,
-                      color: Color(0xFF6C63FF),
-                      size: 20,
-                    ),
+                  : Icon(Icons.refresh_rounded, color: colors.accent, size: 20),
             ),
           ),
         ],
@@ -393,6 +386,7 @@ out center;
   }
 
   Widget _buildMap() {
+    final colors = context.colors;
     if (_currentPosition == null) return const SizedBox();
     final userLatLng = LatLng(
       _currentPosition!.latitude,
@@ -404,7 +398,7 @@ out center;
       height: 220,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: colors.border),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -432,11 +426,11 @@ out center;
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF6C63FF),
+                      color: colors.accent,
                       border: Border.all(color: Colors.white, width: 3),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6C63FF).withOpacity(0.5),
+                          color: colors.accent.withOpacity(0.5),
                           blurRadius: 10,
                           spreadRadius: 2,
                         ),
@@ -489,11 +483,12 @@ out center;
   }
 
   Widget _buildStatsBar() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: Row(
         children: [
-          const Icon(Icons.place_outlined, color: Color(0xFF00D4AA), size: 16),
+          Icon(Icons.place_outlined, color: colors.success, size: 16),
           const SizedBox(width: 6),
           Text(
             _isLoadingPlaces
@@ -501,7 +496,7 @@ out center;
                 : _places.isEmpty
                 ? 'Limited OSM data in this area — try refreshing'
                 : '${_filteredPlaces.length} places found within ${_radius ~/ 1000}km',
-            style: const TextStyle(color: Color(0xFF9E9FBF), fontSize: 12),
+            style: TextStyle(color: colors.textSecondary, fontSize: 12),
           ),
         ],
       ),
@@ -509,13 +504,14 @@ out center;
   }
 
   Widget _buildFilterChips() {
+    final colors = context.colors;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: Row(
         children: _filters.map((filter) {
           final isSelected = _selectedFilter == filter;
-          const color = Color(0xFF6C63FF);
+          final color = colors.accent;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
@@ -532,15 +528,13 @@ out center;
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected
-                        ? color.withOpacity(0.5)
-                        : Colors.white.withOpacity(0.1),
+                    color: isSelected ? color.withOpacity(0.5) : colors.border,
                   ),
                 ),
                 child: Text(
                   filter,
                   style: TextStyle(
-                    color: isSelected ? color : const Color(0xFF4A4A6A),
+                    color: isSelected ? color : colors.textTertiary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -554,28 +548,23 @@ out center;
   }
 
   Widget _buildPlacesList() {
+    final colors = context.colors;
     if (_isLoadingPlaces) {
       return Expanded(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const CircularProgressIndicator(color: Color(0xFF6C63FF)),
+              CircularProgressIndicator(color: colors.accent),
               const SizedBox(height: 12),
               Text(
                 'Searching nearby places...',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: colors.textSecondary, fontSize: 13),
               ),
               const SizedBox(height: 4),
               Text(
                 'This may take a few seconds',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.3),
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: colors.textTertiary, fontSize: 11),
               ),
             ],
           ),
@@ -596,24 +585,23 @@ out center;
                 Icon(
                   Icons.restaurant_outlined,
                   size: 48,
-                  color: Colors.white.withOpacity(0.2),
+                  color: colors.textTertiary,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'No places found nearby',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: colors.textSecondary,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Honest message about OSM limitation
                 Text(
                   'OpenStreetMap data coverage varies in Malaysia.\nMany local restaurants and mamak stalls may not be listed yet.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.3),
+                    color: colors.textTertiary,
                     fontSize: 12,
                     height: 1.5,
                   ),
@@ -627,16 +615,14 @@ out center;
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C63FF).withOpacity(0.15),
+                      color: colors.accent.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF6C63FF).withOpacity(0.3),
-                      ),
+                      border: Border.all(color: colors.accent.withOpacity(0.3)),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Retry',
                       style: TextStyle(
-                        color: Color(0xFF6C63FF),
+                        color: colors.accent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -659,6 +645,7 @@ out center;
   }
 
   Widget _buildPlaceCard(PlaceModel place) {
+    final colors = context.colors;
     final color = _amenityColor(place.amenity);
     final icon = _amenityIcon(place.amenity);
 
@@ -673,9 +660,9 @@ out center;
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: colors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: colors.border),
         ),
         child: Row(
           children: [
@@ -695,8 +682,8 @@ out center;
                 children: [
                   Text(
                     place.name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -728,8 +715,8 @@ out center;
                         const SizedBox(width: 6),
                         Text(
                           place.cuisine,
-                          style: const TextStyle(
-                            color: Color(0xFF4A4A6A),
+                          style: TextStyle(
+                            color: colors.textTertiary,
                             fontSize: 11,
                           ),
                         ),
@@ -740,16 +727,16 @@ out center;
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.payments_outlined,
-                          color: Color(0xFF00D4AA),
+                          color: colors.success,
                           size: 12,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           place.priceRange,
-                          style: const TextStyle(
-                            color: Color(0xFF00D4AA),
+                          style: TextStyle(
+                            color: colors.success,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
@@ -763,21 +750,21 @@ out center;
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: colors.surfaceAlt,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.location_on_outlined,
-                    color: Color(0xFF9E9FBF),
+                    color: colors.textSecondary,
                     size: 12,
                   ),
                   const SizedBox(width: 3),
                   Text(
                     LocationService.formatDistance(place.distance),
-                    style: const TextStyle(
-                      color: Color(0xFF9E9FBF),
+                    style: TextStyle(
+                      color: colors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -792,10 +779,11 @@ out center;
   }
 
   void _showPlaceBottomSheet(PlaceModel place) {
+    final colors = context.colors;
     final color = _amenityColor(place.amenity);
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -810,7 +798,7 @@ out center;
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: colors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -838,8 +826,8 @@ out center;
                     children: [
                       Text(
                         place.name,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: colors.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -885,14 +873,15 @@ out center;
   }
 
   Widget _detailRow(IconData icon, String text) {
+    final colors = context.colors;
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF9E9FBF), size: 16),
+        Icon(icon, color: colors.textSecondary, size: 16),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: Color(0xFF9E9FBF), fontSize: 13),
+            style: TextStyle(color: colors.textSecondary, fontSize: 13),
           ),
         ),
       ],
@@ -900,24 +889,22 @@ out center;
   }
 
   Widget _buildLoadingState() {
+    final colors = context.colors;
     return Expanded(
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: Color(0xFF6C63FF)),
+            CircularProgressIndicator(color: colors.accent),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Getting your location...',
-              style: TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: colors.textPrimary, fontSize: 14),
             ),
             const SizedBox(height: 8),
             Text(
               'Please allow location access',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
-                fontSize: 12,
-              ),
+              style: TextStyle(color: colors.textTertiary, fontSize: 12),
             ),
           ],
         ),
@@ -926,6 +913,7 @@ out center;
   }
 
   Widget _buildErrorBanner() {
+    final colors = context.colors;
     return Expanded(
       child: Center(
         child: Padding(
@@ -933,16 +921,12 @@ out center;
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.location_off_outlined,
-                color: Color(0xFFFF6B6B),
-                size: 56,
-              ),
+              Icon(Icons.location_off_outlined, color: colors.danger, size: 56),
               const SizedBox(height: 16),
               Text(
                 _errorMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF9E9FBF), fontSize: 14),
+                style: TextStyle(color: colors.textSecondary, fontSize: 14),
               ),
               const SizedBox(height: 24),
               GestureDetector(
@@ -953,16 +937,14 @@ out center;
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6C63FF).withOpacity(0.15),
+                    color: colors.accent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF6C63FF).withOpacity(0.3),
-                    ),
+                    border: Border.all(color: colors.accent.withOpacity(0.3)),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Try Again',
                     style: TextStyle(
-                      color: Color(0xFF6C63FF),
+                      color: colors.accent,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -976,24 +958,25 @@ out center;
   }
 
   Color _amenityColor(String amenity) {
+    final colors = context.colors;
     switch (amenity) {
       case 'cafe':
-        return const Color(0xFFFFB347);
+        return colors.warning;
       case 'fast_food':
-        return const Color(0xFFFF6B6B);
+        return colors.danger;
       case 'food_court':
-        return const Color(0xFF00D4AA);
+        return colors.success;
       case 'bar':
         return const Color(0xFF9C8DFF);
       case 'bakery':
-        return const Color(0xFFFFB347);
+        return colors.warning;
       case 'canteen':
-        return const Color(0xFF00D4AA);
+        return colors.success;
       case 'convenience':
       case 'supermarket':
-        return const Color(0xFF4FC3F7);
+        return colors.info;
       default:
-        return const Color(0xFF6C63FF);
+        return colors.accent;
     }
   }
 

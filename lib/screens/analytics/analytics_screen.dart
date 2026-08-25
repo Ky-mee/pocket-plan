@@ -5,6 +5,7 @@ import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/core/services/fuzzy_spending_predictor.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -47,7 +48,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -97,21 +98,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: context.colors.textPrimary,
                 size: 18,
               ),
             ),
           ),
           const SizedBox(width: 16),
-          const Text(
+          Text(
             'Analytics',
             style: TextStyle(
-              color: Colors.white,
+              color: context.colors.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -127,18 +128,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(14),
         ),
         child: TabBar(
           controller: _tabController,
           indicator: BoxDecoration(
-            color: const Color(0xFF6C63FF),
+            color: context.colors.accent,
             borderRadius: BorderRadius.circular(10),
           ),
           indicatorSize: TabBarIndicatorSize.tab,
           labelColor: Colors.white,
-          unselectedLabelColor: const Color(0xFF4A4A6A),
+          unselectedLabelColor: context.colors.textTertiary,
           labelStyle: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -180,7 +181,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   'Total Income',
                   'RM ${totalIncome.toStringAsFixed(2)}',
                   Icons.arrow_downward_rounded,
-                  const Color(0xFF00D4AA),
+                  context.colors.success,
                 ),
               ),
               const SizedBox(width: 12),
@@ -189,7 +190,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   'Total Expense',
                   'RM ${totalExpense.toStringAsFixed(2)}',
                   Icons.arrow_upward_rounded,
-                  const Color(0xFFFF6B6B),
+                  context.colors.danger,
                 ),
               ),
             ],
@@ -199,7 +200,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             'Net Savings',
             'RM ${netSavings.toStringAsFixed(2)}',
             Icons.savings_outlined,
-            netSavings >= 0 ? const Color(0xFF6C63FF) : const Color(0xFFFF6B6B),
+            netSavings >= 0 ? context.colors.accent : context.colors.danger,
           ),
           const SizedBox(height: 20),
           _buildBarChart(barData),
@@ -236,8 +237,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Color(0xFF9E9FBF),
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -261,17 +262,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Last 7 Days',
             style: TextStyle(
-              color: Colors.white,
+              color: context.colors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -308,8 +309,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               barData[idx]['day'] as String,
-                              style: const TextStyle(
-                                color: Color(0xFF4A4A6A),
+                              style: TextStyle(
+                                color: context.colors.textTertiary,
                                 fontSize: 10,
                               ),
                             ),
@@ -323,10 +324,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: Colors.white.withOpacity(0.05),
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: context.colors.border, strokeWidth: 1),
                 ),
                 borderData: FlBorderData(show: false),
                 barGroups: barData.asMap().entries.map((e) {
@@ -337,7 +336,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     barRods: [
                       BarChartRodData(
                         toY: data['expense'] as double,
-                        color: const Color(0xFF6C63FF),
+                        color: context.colors.accent,
                         width: 20,
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -376,17 +375,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Month Comparison',
             style: TextStyle(
-              color: Colors.white,
+              color: context.colors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -398,15 +397,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'This Month',
-                      style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 12),
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'RM ${thisTotal.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.colors.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
@@ -421,8 +423,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 ),
                 decoration: BoxDecoration(
                   color: isUp
-                      ? const Color(0xFFFF6B6B).withOpacity(0.15)
-                      : const Color(0xFF00D4AA).withOpacity(0.15),
+                      ? context.colors.danger.withOpacity(0.15)
+                      : context.colors.success.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -432,8 +434,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                           ? Icons.trending_up_rounded
                           : Icons.trending_down_rounded,
                       color: isUp
-                          ? const Color(0xFFFF6B6B)
-                          : const Color(0xFF00D4AA),
+                          ? context.colors.danger
+                          : context.colors.success,
                       size: 16,
                     ),
                     const SizedBox(width: 4),
@@ -441,8 +443,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                       '${diff.abs().toStringAsFixed(1)}%',
                       style: TextStyle(
                         color: isUp
-                            ? const Color(0xFFFF6B6B)
-                            : const Color(0xFF00D4AA),
+                            ? context.colors.danger
+                            : context.colors.success,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -455,15 +457,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
+                    Text(
                       'Last Month',
-                      style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 12),
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'RM ${lastTotal.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Color(0xFF9E9FBF),
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
@@ -519,11 +524,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     double total,
   ) {
     final colors = [
-      const Color(0xFF6C63FF),
-      const Color(0xFF00D4AA),
-      const Color(0xFFFFB347),
-      const Color(0xFFFF6B6B),
-      const Color(0xFF4FC3F7),
+      context.colors.accent,
+      context.colors.success,
+      context.colors.warning,
+      context.colors.danger,
+      context.colors.info,
       const Color(0xFFCE93D8),
       const Color(0xFF80CBC4),
     ];
@@ -531,16 +536,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         children: [
-          const Text(
+          Text(
             'Spending by Category',
             style: TextStyle(
-              color: Colors.white,
+              color: context.colors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -572,11 +577,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   Widget _buildCategoryRow(String category, double amount, double total) {
     final pct = total > 0 ? (amount / total * 100) : 0.0;
     final colors = [
-      const Color(0xFF6C63FF),
-      const Color(0xFF00D4AA),
-      const Color(0xFFFFB347),
-      const Color(0xFFFF6B6B),
-      const Color(0xFF4FC3F7),
+      context.colors.accent,
+      context.colors.success,
+      context.colors.warning,
+      context.colors.danger,
+      context.colors.info,
     ];
     final color = colors[category.hashCode.abs() % colors.length];
 
@@ -584,9 +589,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         children: [
@@ -609,8 +614,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               Expanded(
                 child: Text(
                   category,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -629,8 +634,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   ),
                   Text(
                     '${pct.toStringAsFixed(1)}%',
-                    style: const TextStyle(
-                      color: Color(0xFF9E9FBF),
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
                       fontSize: 11,
                     ),
                   ),
@@ -643,7 +648,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: pct / 100,
-              backgroundColor: Colors.white.withOpacity(0.06),
+              backgroundColor: context.colors.border,
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 4,
             ),
@@ -668,6 +673,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       currentMonthLimit: currentLimit,
     );
 
+    final hasData = transactions.any((t) => t.type == TransactionType.expense);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
       child: Column(
@@ -675,18 +682,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         children: [
           _buildNextMonthCard(nextMonth),
           const SizedBox(height: 20),
-          const Text(
-            '6-Month Forecast',
+
+          // ── Category breakdown ──
+          if (hasData) ...[
+            _buildCategoryBreakdown(nextMonth, currentLimit),
+            const SizedBox(height: 20),
+          ],
+
+          // ── 6 month forecast ──
+          Text(
+            '6-Month Spending Forecast',
             style: TextStyle(
-              color: Colors.white,
+              color: context.colors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Powered by fuzzy logic inference',
-            style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 12),
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
           ),
           const SizedBox(height: 12),
           _buildSixMonthChart(sixMonths),
@@ -705,10 +720,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     final isIncrease = result.adjustmentFactor > 0.02;
     final isDecrease = result.adjustmentFactor < -0.02;
     final color = isIncrease
-        ? const Color(0xFFFF6B6B)
+        ? context.colors.danger
         : isDecrease
-        ? const Color(0xFF00D4AA)
-        : const Color(0xFF6C63FF);
+        ? context.colors.success
+        : context.colors.accent;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -814,12 +829,207 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // CATEGORY BREAKDOWN (per-bucket fuzzy forecast)
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildCategoryBreakdown(
+    FuzzyForecastResult result,
+    double currentLimit,
+  ) {
+    final commitmentLimit = currentLimit * 0.5;
+    final spendingLimit = currentLimit * 0.3;
+    final savingsLimit = currentLimit * 0.2;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Predicted Spending by Category',
+          style: TextStyle(
+            color: context.colors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Fuzzy logic forecast per budget bucket',
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        _categoryForecastCard(
+          icon: Icons.home_outlined,
+          label: 'Commitments',
+          sublabel: '50% of budget',
+          predicted: result.predictedCommitments,
+          limit: commitmentLimit,
+          color: context.colors.accent,
+        ),
+        const SizedBox(height: 10),
+        _categoryForecastCard(
+          icon: Icons.shopping_bag_outlined,
+          label: 'Spending',
+          sublabel: '30% of budget',
+          predicted: result.predictedSpending,
+          limit: spendingLimit,
+          color: context.colors.warning,
+        ),
+        const SizedBox(height: 10),
+        _categoryForecastCard(
+          icon: Icons.savings_outlined,
+          label: 'Savings',
+          sublabel: '20% of budget',
+          predicted: result.predictedSavings,
+          limit: savingsLimit,
+          color: context.colors.success,
+        ),
+      ],
+    );
+  }
+
+  Widget _categoryForecastCard({
+    required IconData icon,
+    required String label,
+    required String sublabel,
+    required double predicted,
+    required double limit,
+    required Color color,
+  }) {
+    final isOver = predicted > limit && limit > 0;
+    final pct = limit > 0 ? (predicted / limit).clamp(0.0, 1.5) : 0.0;
+    final diff = predicted - limit;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isOver
+              ? context.colors.danger.withOpacity(0.3)
+              : context.colors.border,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: context.colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      sublabel,
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // ── Predicted amount ──
+                  Text(
+                    predicted > 0
+                        ? 'RM ${predicted.toStringAsFixed(2)}'
+                        : 'No data',
+                    style: TextStyle(
+                      color: isOver
+                          ? context.colors.danger
+                          : context.colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  // ── Budget limit ──
+                  if (limit > 0)
+                    Text(
+                      'of RM ${limit.toStringAsFixed(2)} limit',
+                      style: TextStyle(
+                        color: context.colors.textTertiary,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          if (limit > 0 && predicted > 0) ...[
+            const SizedBox(height: 12),
+            // ── Progress bar ──
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct.clamp(0.0, 1.0),
+                backgroundColor: context.colors.border,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isOver ? context.colors.danger : color,
+                ),
+                minHeight: 5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // ── Status label ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isOver
+                      ? '⚠️ Predicted to exceed by RM ${diff.toStringAsFixed(2)}'
+                      : '✓ Within limit — RM ${diff.abs().toStringAsFixed(2)} to spare',
+                  style: TextStyle(
+                    color: isOver
+                        ? context.colors.danger
+                        : context.colors.success,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  '${(pct * 100).toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    color: isOver
+                        ? context.colors.danger
+                        : context.colors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildSixMonthChart(List<FuzzyForecastResult> results) {
     return Container(
       height: 180,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: BarChart(
@@ -845,8 +1055,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 showTitles: true,
                 getTitlesWidget: (value, meta) => Text(
                   'M${value.toInt() + 1}',
-                  style: const TextStyle(
-                    color: Color(0xFF9E9FBF),
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -881,7 +1091,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -890,14 +1100,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withOpacity(0.15),
+              color: context.colors.accent.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
               child: Text(
                 'M$monthNum',
-                style: const TextStyle(
-                  color: Color(0xFF6C63FF),
+                style: TextStyle(
+                  color: context.colors.accent,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -911,16 +1121,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               children: [
                 Text(
                   'RM ${result.predictedAmount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   '${result.trendLabel} • ${result.volatilityLabel} volatility',
-                  style: const TextStyle(
-                    color: Color(0xFF9E9FBF),
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -929,8 +1139,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           ),
           Text(
             '${result.confidenceScore.toStringAsFixed(0)}%',
-            style: const TextStyle(
-              color: Color(0xFF4A4A6A),
+            style: TextStyle(
+              color: context.colors.textTertiary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -944,16 +1154,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF6C63FF).withOpacity(0.08),
+        color: context.colors.accent.withOpacity(0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.2)),
+        border: Border.all(color: context.colors.accent.withOpacity(0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.lightbulb_outline_rounded,
-            color: Color(0xFF6C63FF),
+            color: context.colors.accent,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -961,7 +1171,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             child: Text(
               'This forecast uses fuzzy logic to interpret your spending trend, volatility, and budget utilization as approximate linguistic terms (e.g. "Increasing", "High") rather than fixed numbers, producing a more human-like prediction than a simple average.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: context.colors.textSecondary,
                 fontSize: 12,
                 height: 1.5,
               ),
@@ -1003,13 +1213,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           Icon(
             Icons.bar_chart_rounded,
             size: 64,
-            color: Colors.white.withOpacity(0.15),
+            color: context.colors.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
             title,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
+              color: context.colors.textSecondary,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -1017,10 +1227,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.25),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: context.colors.textTertiary, fontSize: 13),
           ),
         ],
       ),

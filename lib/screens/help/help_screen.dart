@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
@@ -12,11 +13,11 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
   late Animation<double> _fadeAnimation;
   int _expandedIndex = -1;
 
-  final List<HelpSection> _sections = [
+  List<HelpSection> _buildSections(AppColors colors) => [
     HelpSection(
       icon: '💰',
       title: 'Getting Started',
-      color: const Color(0xFF6C63FF),
+      color: colors.accent,
       items: [
         HelpItem(
           question: 'How do I set my monthly allowance?',
@@ -38,7 +39,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
     HelpSection(
       icon: '📝',
       title: 'Transactions',
-      color: const Color(0xFF00D4AA),
+      color: colors.success,
       items: [
         HelpItem(
           question: 'How do I add a transaction?',
@@ -65,7 +66,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
     HelpSection(
       icon: '📊',
       title: 'Analytics & Budget',
-      color: const Color(0xFFFFB347),
+      color: colors.warning,
       items: [
         HelpItem(
           question: 'What does the Analytics screen show?',
@@ -109,7 +110,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
     HelpSection(
       icon: '🔒',
       title: 'Security & Account',
-      color: const Color(0xFFFF6B6B),
+      color: colors.danger,
       items: [
         HelpItem(
           question: 'How do I enable fingerprint login?',
@@ -152,8 +153,10 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final sections = _buildSections(colors);
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -165,7 +168,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                   children: [
-                    ..._sections.asMap().entries.map(
+                    ...sections.asMap().entries.map(
                       (entry) => _buildSection(entry.value, entry.key),
                     ),
                     const SizedBox(height: 20),
@@ -181,6 +184,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -191,31 +195,31 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: colors.textPrimary,
                 size: 18,
               ),
             ),
           ),
           const SizedBox(width: 16),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Help & Guide',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
                 'How to use PocketPlan',
-                style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 12),
+                style: TextStyle(color: colors.textSecondary, fontSize: 12),
               ),
             ],
           ),
@@ -225,12 +229,13 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildSearchHint() {
+    final colors = context.colors;
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6C63FF), Color(0xFF4834D4)],
+        gradient: LinearGradient(
+          colors: [colors.accent, colors.accent.withOpacity(0.7)],
         ),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -258,6 +263,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildSection(HelpSection section, int sectionIndex) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -280,9 +286,9 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
+            color: colors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: colors.border),
           ),
           child: Column(
             children: section.items.asMap().entries.map((entry) {
@@ -307,7 +313,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
                               style: TextStyle(
                                 color: isExpanded
                                     ? section.color
-                                    : Colors.white,
+                                    : colors.textPrimary,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -321,7 +327,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
                               Icons.keyboard_arrow_down_rounded,
                               color: isExpanded
                                   ? section.color
-                                  : const Color(0xFF4A4A6A),
+                                  : colors.textTertiary,
                               size: 20,
                             ),
                           ),
@@ -346,8 +352,8 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
                         ),
                         child: Text(
                           item.answer,
-                          style: const TextStyle(
-                            color: Color(0xFF9E9FBF),
+                          style: TextStyle(
+                            color: colors.textSecondary,
                             fontSize: 13,
                             height: 1.6,
                           ),
@@ -360,11 +366,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
                     duration: const Duration(milliseconds: 250),
                   ),
                   if (!isLast)
-                    Divider(
-                      color: Colors.white.withOpacity(0.05),
-                      height: 1,
-                      indent: 16,
-                    ),
+                    Divider(color: colors.border, height: 1, indent: 16),
                 ],
               );
             }).toList(),
@@ -375,31 +377,32 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildContactCard() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         children: [
           const Text('👨‍💻', style: TextStyle(fontSize: 32)),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'PocketPlan FYP',
             style: TextStyle(
-              color: Colors.white,
+              color: colors.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Universiti Teknikal Malaysia Melaka\nFaculty of Information & Communication Technology\nSession 2025/2026',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF9E9FBF),
+              color: colors.textSecondary,
               fontSize: 12,
               height: 1.6,
             ),
@@ -408,16 +411,14 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withOpacity(0.15),
+              color: colors.accent.withOpacity(0.15),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF6C63FF).withOpacity(0.3),
-              ),
+              border: Border.all(color: colors.accent.withOpacity(0.3)),
             ),
-            child: const Text(
+            child: Text(
               'v1.0.0',
               style: TextStyle(
-                color: Color(0xFF6C63FF),
+                color: colors.accent,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),

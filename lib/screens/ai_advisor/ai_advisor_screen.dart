@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class AiAdvisorScreen extends StatefulWidget {
   const AiAdvisorScreen({super.key});
@@ -217,8 +218,9 @@ GUIDELINES:
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -241,6 +243,7 @@ GUIDELINES:
   // HEADER
   // ─────────────────────────────────────────
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -251,12 +254,12 @@ GUIDELINES:
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: colors.textPrimary,
                 size: 18,
               ),
             ),
@@ -266,8 +269,8 @@ GUIDELINES:
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF9C8DFF)],
+              gradient: LinearGradient(
+                colors: [colors.accent, colors.accent.withOpacity(0.7)],
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -278,21 +281,21 @@ GUIDELINES:
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'AI Financial Advisor',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   'Powered by Google Gemini',
-                  style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 11),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -308,33 +311,30 @@ GUIDELINES:
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.refresh_rounded,
-                color: Color(0xFF9E9FBF),
+                color: colors.textSecondary,
                 size: 20,
               ),
             ),
           ),
           const SizedBox(width: 8),
-          // NEW — location button (add this)
           GestureDetector(
             onTap: () => Navigator.of(context).pushNamed('/nearby-places'),
             child: Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF00D4AA).withOpacity(0.15),
+                color: colors.success.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF00D4AA).withOpacity(0.3),
-                ),
+                border: Border.all(color: colors.success.withOpacity(0.3)),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.location_on_outlined,
-                color: Color(0xFF00D4AA),
+                color: colors.success,
                 size: 20,
               ),
             ),
@@ -348,6 +348,7 @@ GUIDELINES:
   // FINANCIAL CONTEXT BANNER
   // ─────────────────────────────────────────
   Widget _buildFinancialContext() {
+    final colors = context.colors;
     final remaining =
         (_budget?.monthlyAllowance ?? 0) - (_budget?.totalSpent ?? 0);
     final isLow = remaining < ((_budget?.monthlyAllowance ?? 1) * 0.2);
@@ -357,13 +358,13 @@ GUIDELINES:
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: isLow
-            ? const Color(0xFFFF6B6B).withOpacity(0.1)
-            : const Color(0xFF6C63FF).withOpacity(0.1),
+            ? colors.danger.withOpacity(0.1)
+            : colors.accent.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isLow
-              ? const Color(0xFFFF6B6B).withOpacity(0.3)
-              : const Color(0xFF6C63FF).withOpacity(0.3),
+              ? colors.danger.withOpacity(0.3)
+              : colors.accent.withOpacity(0.3),
         ),
       ),
       child: Row(
@@ -372,7 +373,7 @@ GUIDELINES:
             isLow
                 ? Icons.warning_amber_rounded
                 : Icons.account_balance_wallet_outlined,
-            color: isLow ? const Color(0xFFFF6B6B) : const Color(0xFF6C63FF),
+            color: isLow ? colors.danger : colors.accent,
             size: 16,
           ),
           const SizedBox(width: 8),
@@ -381,7 +382,7 @@ GUIDELINES:
                 ? 'Low balance! RM${remaining.toStringAsFixed(2)} remaining'
                 : 'Balance: RM${remaining.toStringAsFixed(2)} remaining this month',
             style: TextStyle(
-              color: isLow ? const Color(0xFFFF6B6B) : const Color(0xFF9E9FBF),
+              color: isLow ? colors.danger : colors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -395,6 +396,7 @@ GUIDELINES:
   // SUGGESTIONS VIEW
   // ─────────────────────────────────────────
   Widget _buildSuggestionsView() {
+    final colors = context.colors;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -403,10 +405,10 @@ GUIDELINES:
           // Welcome message
           _buildAIBubble(_messages.first),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Quick questions',
             style: TextStyle(
-              color: Color(0xFF9E9FBF),
+              color: colors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -432,11 +434,9 @@ GUIDELINES:
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6C63FF).withOpacity(0.08),
+                    color: colors.accent.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF6C63FF).withOpacity(0.2),
-                    ),
+                    border: Border.all(color: colors.accent.withOpacity(0.2)),
                   ),
                   child: Row(
                     children: [
@@ -445,8 +445,8 @@ GUIDELINES:
                       Expanded(
                         child: Text(
                           s['text']!,
-                          style: const TextStyle(
-                            color: Color(0xFF9E9FBF),
+                          style: TextStyle(
+                            color: colors.textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
@@ -481,6 +481,7 @@ GUIDELINES:
   }
 
   Widget _buildUserBubble(ChatMessage msg) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -490,11 +491,11 @@ GUIDELINES:
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF6C63FF), Color(0xFF9C8DFF)],
+                  colors: [colors.accent, colors.accent.withOpacity(0.7)],
                 ),
-                borderRadius: BorderRadius.only(
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(18),
                   bottomLeft: Radius.circular(18),
@@ -516,8 +517,8 @@ GUIDELINES:
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF9C8DFF)],
+              gradient: LinearGradient(
+                colors: [colors.accent, colors.accent.withOpacity(0.7)],
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -533,6 +534,7 @@ GUIDELINES:
   }
 
   Widget _buildAIBubble(ChatMessage msg) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -543,12 +545,12 @@ GUIDELINES:
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withOpacity(0.2),
+              color: colors.accent.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.smart_toy_rounded,
-              color: Color(0xFF6C63FF),
+              color: colors.accent,
               size: 14,
             ),
           ),
@@ -558,8 +560,8 @@ GUIDELINES:
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: msg.isError
-                    ? const Color(0xFFFF6B6B).withOpacity(0.1)
-                    : const Color(0xFF1A1A2E),
+                    ? colors.danger.withOpacity(0.1)
+                    : colors.surface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(18),
@@ -568,25 +570,23 @@ GUIDELINES:
                 ),
                 border: Border.all(
                   color: msg.isError
-                      ? const Color(0xFFFF6B6B).withOpacity(0.3)
-                      : Colors.white.withOpacity(0.06),
+                      ? colors.danger.withOpacity(0.3)
+                      : colors.border,
                 ),
               ),
               child: msg.isError || msg.hasAnimated
                   ? Text(
                       msg.text,
                       style: TextStyle(
-                        color: msg.isError
-                            ? const Color(0xFFFF6B6B)
-                            : Colors.white,
+                        color: msg.isError ? colors.danger : colors.textPrimary,
                         fontSize: 14,
                         height: 1.5,
                       ),
                     )
                   : TypewriterText(
                       text: msg.text,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colors.textPrimary,
                         fontSize: 14,
                         height: 1.5,
                       ),
@@ -602,6 +602,7 @@ GUIDELINES:
   // TYPING INDICATOR
   // ─────────────────────────────────────────
   Widget _buildTypingIndicator() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       child: Row(
@@ -610,12 +611,12 @@ GUIDELINES:
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withOpacity(0.2),
+              color: colors.accent.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.smart_toy_rounded,
-              color: Color(0xFF6C63FF),
+              color: colors.accent,
               size: 14,
             ),
           ),
@@ -623,14 +624,14 @@ GUIDELINES:
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
+              color: colors.surface,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 topRight: Radius.circular(18),
                 bottomLeft: Radius.circular(18),
                 bottomRight: Radius.circular(18),
               ),
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
+              border: Border.all(color: colors.border),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -649,6 +650,7 @@ GUIDELINES:
   }
 
   Widget _dot(int delayMs) {
+    final colors = context.colors;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.4, end: 1.0),
       duration: const Duration(milliseconds: 600),
@@ -659,9 +661,9 @@ GUIDELINES:
           child: Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF6C63FF),
+              color: colors.accent,
             ),
           ),
         );
@@ -673,39 +675,34 @@ GUIDELINES:
   // INPUT BAR
   // ─────────────────────────────────────────
   Widget _buildInputBar() {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _messageController,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: colors.textPrimary, fontSize: 14),
               maxLines: 3,
               minLines: 1,
               textInputAction: TextInputAction.newline,
               decoration: InputDecoration(
                 hintText: 'Ask about your finances...',
-                hintStyle: TextStyle(
-                  color: Colors.white.withOpacity(0.3),
-                  fontSize: 14,
-                ),
+                hintStyle: TextStyle(color: colors.textTertiary, fontSize: 14),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.06),
+                fillColor: colors.surfaceAlt,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF6C63FF),
-                    width: 1.5,
-                  ),
+                  borderSide: BorderSide(color: colors.accent, width: 1.5),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -726,17 +723,15 @@ GUIDELINES:
               decoration: BoxDecoration(
                 gradient: _isLoading
                     ? null
-                    : const LinearGradient(
-                        colors: [Color(0xFF6C63FF), Color(0xFF9C8DFF)],
+                    : LinearGradient(
+                        colors: [colors.accent, colors.accent.withOpacity(0.7)],
                       ),
-                color: _isLoading ? Colors.white.withOpacity(0.06) : null,
+                color: _isLoading ? colors.surfaceAlt : null,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(
                 Icons.send_rounded,
-                color: _isLoading
-                    ? Colors.white.withOpacity(0.3)
-                    : Colors.white,
+                color: _isLoading ? colors.textTertiary : Colors.white,
                 size: 20,
               ),
             ),

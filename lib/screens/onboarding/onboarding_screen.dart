@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -15,13 +16,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
 
-  final List<OnboardingPage> _pages = [
+  List<OnboardingPage> _buildPages(AppColors colors) => [
     OnboardingPage(
       emoji: '👋',
       title: 'Welcome to\nPocketPlan',
       subtitle:
           'Your smart personal finance companion designed for Malaysian university students.',
-      color: const Color(0xFF6C63FF),
+      color: colors.accent,
       features: [],
     ),
     OnboardingPage(
@@ -29,7 +30,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       title: 'Smart Budget\nManagement',
       subtitle:
           'PocketPlan uses the 50/30/20 rule to automatically split your monthly allowance.',
-      color: const Color(0xFF00D4AA),
+      color: colors.success,
       features: [
         FeatureItem('50%', 'Commitments — rent, bills, loans'),
         FeatureItem('30%', 'Spending — food, shopping, fun'),
@@ -41,7 +42,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       title: 'Track Every\nRinggit',
       subtitle:
           'Add income and expenses easily. Get real-time analytics and spending insights.',
-      color: const Color(0xFFFFB347),
+      color: colors.warning,
       features: [
         FeatureItem('📈', 'Spending charts and trends'),
         FeatureItem('🔔', 'Budget exceeded alerts'),
@@ -65,7 +66,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       title: "You're All\nSet!",
       subtitle:
           'Start by entering your monthly allowance and PocketPlan will do the rest.',
-      color: const Color(0xFF6C63FF),
+      color: colors.accent,
       features: [],
     ),
   ];
@@ -99,8 +100,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
   }
 
-  void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
+  void _nextPage(int pageCount) {
+    if (_currentPage < pageCount - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeOutCubic,
@@ -114,8 +115,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final pages = _buildPages(colors);
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SafeArea(
@@ -134,27 +137,27 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6C63FF).withOpacity(0.2),
+                            color: colors.accent.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.account_balance_wallet_rounded,
-                            color: Color(0xFF6C63FF),
+                            color: colors.accent,
                             size: 16,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
+                        Text(
                           'PocketPlan',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: colors.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
-                    if (_currentPage < _pages.length - 1)
+                    if (_currentPage < pages.length - 1)
                       GestureDetector(
                         onTap: _skip,
                         child: Container(
@@ -163,13 +166,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Skip',
                             style: TextStyle(
-                              color: Color(0xFF9E9FBF),
+                              color: colors.textSecondary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -189,8 +192,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     _animController.reset();
                     _animController.forward();
                   },
-                  itemCount: _pages.length,
-                  itemBuilder: (context, index) => _buildPage(_pages[index]),
+                  itemCount: pages.length,
+                  itemBuilder: (context, index) => _buildPage(pages[index]),
                 ),
               ),
 
@@ -203,7 +206,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(
-                        _pages.length,
+                        pages.length,
                         (i) => AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -211,8 +214,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           height: 8,
                           decoration: BoxDecoration(
                             color: _currentPage == i
-                                ? _pages[_currentPage].color
-                                : Colors.white.withOpacity(0.15),
+                                ? pages[_currentPage].color
+                                : colors.border,
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -222,7 +225,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
                     // Next / Get Started button
                     GestureDetector(
-                      onTap: _nextPage,
+                      onTap: () => _nextPage(pages.length),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         width: double.infinity,
@@ -230,16 +233,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              _pages[_currentPage].color,
-                              _pages[_currentPage].color.withOpacity(0.7),
+                              pages[_currentPage].color,
+                              pages[_currentPage].color.withOpacity(0.7),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: _pages[_currentPage].color.withOpacity(
-                                0.4,
-                              ),
+                              color: pages[_currentPage].color.withOpacity(0.4),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             ),
@@ -250,7 +251,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                _currentPage == _pages.length - 1
+                                _currentPage == pages.length - 1
                                     ? 'Get Started'
                                     : 'Next',
                                 style: const TextStyle(
@@ -261,7 +262,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               ),
                               const SizedBox(width: 8),
                               Icon(
-                                _currentPage == _pages.length - 1
+                                _currentPage == pages.length - 1
                                     ? Icons.rocket_launch_rounded
                                     : Icons.arrow_forward_rounded,
                                 color: Colors.white,
@@ -274,7 +275,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     ),
 
                     // Already have account
-                    if (_currentPage == _pages.length - 1) ...[
+                    if (_currentPage == pages.length - 1) ...[
                       const SizedBox(height: 16),
                       GestureDetector(
                         onTap: () {
@@ -287,17 +288,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           });
                         },
                         child: RichText(
-                          text: const TextSpan(
+                          text: TextSpan(
                             text: 'Already have an account? ',
                             style: TextStyle(
-                              color: Color(0xFF9E9FBF),
+                              color: colors.textSecondary,
                               fontSize: 13,
                             ),
                             children: [
                               TextSpan(
                                 text: 'Sign In',
                                 style: TextStyle(
-                                  color: Color(0xFF6C63FF),
+                                  color: colors.accent,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -317,6 +318,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildPage(OnboardingPage page) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
@@ -358,8 +360,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Text(
             page.title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 32,
               fontWeight: FontWeight.w800,
               height: 1.2,
@@ -372,8 +374,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Text(
             page.subtitle,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF9E9FBF),
+            style: TextStyle(
+              color: colors.textSecondary,
               fontSize: 15,
               height: 1.6,
             ),
@@ -414,8 +416,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             Expanded(
                               child: Text(
                                 f.description,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),

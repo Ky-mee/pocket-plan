@@ -5,6 +5,7 @@ import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/widgets/shimmer_widgets.dart';
 import 'package:pocket_plan/screens/transactions/edit_transaction_screen.dart';
 import 'package:pocket_plan/core/services/export_service.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class TransactionListScreen extends StatefulWidget {
   const TransactionListScreen({super.key});
@@ -92,8 +93,9 @@ class _TransactionListScreenState extends State<TransactionListScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -105,7 +107,6 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               child: StreamBuilder<List<TransactionModel>>(
                 stream: _db.transactionsStream(_userId),
                 builder: (context, snap) {
-                  // ── Shimmer while loading ──
                   if (snap.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -123,13 +124,10 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   final grouped = _groupByDate(filtered);
                   final dateKeys = grouped.keys.toList();
 
-                  // ── Pull to refresh ──
                   return RefreshIndicator(
-                    color: const Color(0xFF6C63FF),
-                    backgroundColor: const Color(0xFF1A1A2E),
+                    color: colors.accent,
+                    backgroundColor: colors.surface,
                     onRefresh: () async {
-                      // Firestore stream auto-updates,
-                      // just add a small delay for UX feel
                       await Future.delayed(const Duration(milliseconds: 800));
                     },
                     child: ListView.builder(
@@ -165,13 +163,14 @@ class _TransactionListScreenState extends State<TransactionListScreen>
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context).pushNamed('/add-transaction'),
-        backgroundColor: const Color(0xFF6C63FF),
+        backgroundColor: colors.accent,
         child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
     );
   }
 
   Widget _buildHeader() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -182,21 +181,21 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: colors.textPrimary,
                 size: 18,
               ),
             ),
           ),
           const SizedBox(width: 16),
-          const Text(
+          Text(
             'Transactions',
             style: TextStyle(
-              color: Colors.white,
+              color: colors.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -208,15 +207,13 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.15),
+                color: colors.accent.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF6C63FF).withOpacity(0.3),
-                ),
+                border: Border.all(color: colors.accent.withOpacity(0.3)),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.download_outlined,
-                color: Color(0xFF6C63FF),
+                color: colors.accent,
                 size: 20,
               ),
             ),
@@ -227,20 +224,18 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   }
 
   Widget _buildSearchBar() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: TextField(
         controller: _searchController,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: colors.textPrimary, fontSize: 14),
         decoration: InputDecoration(
           hintText: 'Search transactions...',
-          hintStyle: TextStyle(
-            color: Colors.white.withOpacity(0.3),
-            fontSize: 14,
-          ),
-          prefixIcon: const Icon(
+          hintStyle: TextStyle(color: colors.textTertiary, fontSize: 14),
+          prefixIcon: Icon(
             Icons.search_rounded,
-            color: Color(0xFF6C63FF),
+            color: colors.accent,
             size: 20,
           ),
           suffixIcon: _searchQuery.isNotEmpty
@@ -251,20 +246,20 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   },
                   child: Icon(
                     Icons.close_rounded,
-                    color: Colors.white.withOpacity(0.4),
+                    color: colors.textSecondary,
                     size: 18,
                   ),
                 )
               : null,
           filled: true,
-          fillColor: Colors.white.withOpacity(0.06),
+          fillColor: colors.surface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF6C63FF), width: 1.5),
+            borderSide: BorderSide(color: colors.accent, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -276,24 +271,25 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   }
 
   Widget _buildTabBar() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: colors.surface,
           borderRadius: BorderRadius.circular(14),
         ),
         child: TabBar(
           controller: _tabController,
           onTap: (_) => setState(() {}),
           indicator: BoxDecoration(
-            color: const Color(0xFF6C63FF),
+            color: colors.accent,
             borderRadius: BorderRadius.circular(10),
           ),
           indicatorSize: TabBarIndicatorSize.tab,
           labelColor: Colors.white,
-          unselectedLabelColor: const Color(0xFF4A4A6A),
+          unselectedLabelColor: colors.textTertiary,
           labelStyle: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -310,6 +306,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   }
 
   Widget _buildFilterChips() {
+    final colors = context.colors;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -319,7 +316,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
             'All',
             _filterCategory == null,
             () => setState(() => _filterCategory = null),
-            Colors.white,
+            colors.textPrimary,
           ),
           const SizedBox(width: 8),
           _filterChip(
@@ -330,7 +327,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   ? _filterCategory = null
                   : _filterCategory = BudgetCategory.commitment,
             ),
-            const Color(0xFF6C63FF),
+            colors.accent,
           ),
           const SizedBox(width: 8),
           _filterChip(
@@ -341,7 +338,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   ? _filterCategory = null
                   : _filterCategory = BudgetCategory.spending,
             ),
-            const Color(0xFF00D4AA),
+            colors.success,
           ),
           const SizedBox(width: 8),
           _filterChip(
@@ -352,7 +349,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   ? _filterCategory = null
                   : _filterCategory = BudgetCategory.savings,
             ),
-            const Color(0xFFFFB347),
+            colors.warning,
           ),
         ],
       ),
@@ -365,6 +362,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     VoidCallback onTap,
     Color color,
   ) {
+    final colors = context.colors;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -374,15 +372,13 @@ class _TransactionListScreenState extends State<TransactionListScreen>
           color: selected ? color.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected
-                ? color.withOpacity(0.5)
-                : Colors.white.withOpacity(0.1),
+            color: selected ? color.withOpacity(0.5) : colors.border,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? color : const Color(0xFF4A4A6A),
+            color: selected ? color : colors.textTertiary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -392,13 +388,14 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   }
 
   Widget _buildDateHeader(String dateKey, double dayTotal) {
+    final colors = context.colors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           dateKey,
-          style: const TextStyle(
-            color: Color(0xFF9E9FBF),
+          style: TextStyle(
+            color: colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -406,9 +403,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
         Text(
           '${dayTotal >= 0 ? '+' : ''}RM ${dayTotal.toStringAsFixed(2)}',
           style: TextStyle(
-            color: dayTotal >= 0
-                ? const Color(0xFF00D4AA)
-                : const Color(0xFFFF6B6B),
+            color: dayTotal >= 0 ? colors.success : colors.danger,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -417,7 +412,6 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     );
   }
 
-  // ── Better empty states with EmptyStateWidget ──
   Widget _buildEmptyState(bool noTransactionsAtAll) {
     if (_searchQuery.isNotEmpty) {
       return EmptyStateWidget(
@@ -480,6 +474,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   }
 
   Widget _buildTransactionCard(TransactionModel tx) {
+    final colors = context.colors;
     final isExpense = tx.type == TransactionType.expense;
     final categoryColor = _categoryColor(tx.budgetCategory);
     final categoryIcon = _categoryIcon(tx.category);
@@ -490,50 +485,51 @@ class _TransactionListScreenState extends State<TransactionListScreen>
       background: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFE53935).withOpacity(0.2),
+          color: colors.danger.withOpacity(0.2),
           borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(
+        child: Icon(
           Icons.delete_outline_rounded,
-          color: Color(0xFFE53935),
+          color: colors.danger,
           size: 24,
         ),
       ),
       confirmDismiss: (direction) async {
+        final dialogColors = context.colors;
         return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E3A),
+            backgroundColor: dialogColors.surfaceAlt,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text(
+            title: Text(
               'Delete Transaction',
               style: TextStyle(
-                color: Colors.white,
+                color: dialogColors.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            content: const Text(
+            content: Text(
               'Are you sure? This will update your budget.',
-              style: TextStyle(color: Color(0xFF9E9FBF), fontSize: 13),
+              style: TextStyle(color: dialogColors.textSecondary, fontSize: 13),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(color: Color(0xFF9E9FBF)),
+                  style: TextStyle(color: dialogColors.textSecondary),
                 ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text(
+                child: Text(
                   'Delete',
                   style: TextStyle(
-                    color: Color(0xFFE53935),
+                    color: dialogColors.danger,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -545,10 +541,11 @@ class _TransactionListScreenState extends State<TransactionListScreen>
       onDismissed: (_) async {
         await _db.deleteTransaction(tx);
         if (mounted) {
+          final snackColors = context.colors;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Transaction deleted'),
-              backgroundColor: const Color(0xFFE53935),
+              backgroundColor: snackColors.danger,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -561,9 +558,9 @@ class _TransactionListScreenState extends State<TransactionListScreen>
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: colors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: colors.border),
         ),
         child: Row(
           children: [
@@ -583,8 +580,8 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                 children: [
                   Text(
                     tx.description.isNotEmpty ? tx.description : tx.category,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -619,9 +616,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                 Text(
                   '${isExpense ? '-' : '+'}RM ${tx.amount.toStringAsFixed(2)}',
                   style: TextStyle(
-                    color: isExpense
-                        ? const Color(0xFFFF6B6B)
-                        : const Color(0xFF00D4AA),
+                    color: isExpense ? colors.danger : colors.success,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -629,10 +624,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                 const SizedBox(height: 3),
                 Text(
                   '${tx.date.day}/${tx.date.month}/${tx.date.year}',
-                  style: const TextStyle(
-                    color: Color(0xFF4A4A6A),
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: colors.textTertiary, fontSize: 11),
                 ),
                 GestureDetector(
                   onTap: () => Navigator.of(context).push(
@@ -642,7 +634,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   ),
                   child: Icon(
                     Icons.edit_outlined,
-                    color: const Color(0xFF4A4A6A),
+                    color: colors.textTertiary,
                     size: 16,
                   ),
                 ),
@@ -655,13 +647,14 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   }
 
   Color _categoryColor(BudgetCategory category) {
+    final colors = context.colors;
     switch (category) {
       case BudgetCategory.commitment:
-        return const Color(0xFF6C63FF);
+        return colors.accent;
       case BudgetCategory.spending:
-        return const Color(0xFF00D4AA);
+        return colors.success;
       case BudgetCategory.savings:
-        return const Color(0xFFFFB347);
+        return colors.warning;
     }
   }
 
@@ -700,9 +693,10 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   }
 
   void _showExportDialog() {
+    final colors = context.colors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -715,15 +709,15 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: colors.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Export Transactions',
               style: TextStyle(
-                color: Colors.white,
+                color: colors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -733,7 +727,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               icon: Icons.picture_as_pdf_outlined,
               label: 'Export as PDF',
               subtitle: 'Formatted report with summary',
-              color: const Color(0xFFFF6B6B),
+              color: colors.danger,
               onTap: () async {
                 Navigator.pop(ctx);
                 final snap = await _db.transactionsStream(_userId).first;
@@ -745,7 +739,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               icon: Icons.table_chart_outlined,
               label: 'Export as CSV',
               subtitle: 'Spreadsheet compatible format',
-              color: const Color(0xFF00D4AA),
+              color: colors.success,
               onTap: () async {
                 Navigator.pop(ctx);
                 final snap = await _db.transactionsStream(_userId).first;
@@ -766,6 +760,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     required Color color,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -793,18 +788,15 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF9E9FBF),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
                   ),
                 ],
               ),

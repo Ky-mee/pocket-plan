@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/auth/biometric_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/transactions/add_transaction_screen.dart';
 import 'screens/transactions/transaction_list_screen.dart';
@@ -14,8 +15,12 @@ import 'screens/ai_advisor/ai_advisor_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/nearby_places/nearby_places_screen.dart';
 import 'package:pocket_plan/providers/theme_provider.dart';
+import 'package:pocket_plan/providers/accent_color_provider.dart';
 import 'package:pocket_plan/screens/onboarding/onboarding_screen.dart';
 import 'package:pocket_plan/screens/help/help_screen.dart';
+import 'package:pocket_plan/screens/settings/appearance_screen.dart';
+import 'package:pocket_plan/core/themes/light_theme.dart';
+import 'package:pocket_plan/core/themes/dark_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:pocket_plan/core/services/notification_service.dart';
 
@@ -37,42 +42,19 @@ class PocketPlanApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
+    final accent = ref.watch(accentColorProvider);
     return MaterialApp(
       title: 'PocketPlan',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        // Smooth page transitions app-wide
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          },
-        ),
-      ),
+      theme: buildLightTheme(accent),
+      darkTheme: buildDarkTheme(accent),
       themeMode: themeMode,
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
+        '/biometric': (context) => const BiometricScreen(),
         '/home': (context) => const HomeScreen(),
         '/add-transaction': (context) => const AddTransactionScreen(),
         '/transactions': (context) => const TransactionListScreen(),
@@ -83,6 +65,7 @@ class PocketPlanApp extends ConsumerWidget {
         '/nearby-places': (context) => const NearbyPlacesScreen(),
         '/onboarding': (context) => const OnboardingScreen(),
         '/help': (context) => const HelpScreen(),
+        '/appearance': (context) => const AppearanceScreen(),
       },
     );
   }
