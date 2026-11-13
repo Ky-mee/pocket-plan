@@ -5,6 +5,7 @@ import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -58,6 +59,11 @@ class _BudgetScreenState extends State<BudgetScreen>
                   child: CircularProgressIndicator(color: colors.accent),
                 );
               }
+              if (isDesktopLayout(context)) {
+                return SingleChildScrollView(
+                  child: _buildDesktopBody(budget, colors),
+                );
+              }
               return CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
@@ -109,6 +115,62 @@ class _BudgetScreenState extends State<BudgetScreen>
   // ─────────────────────────────────────────
   // HEADER
   // ─────────────────────────────────────────
+  // Desktop: overview + donut side by side, three buckets in one row.
+  Widget _buildDesktopBody(BudgetModel? budget, dynamic colors) {
+    return Column(
+      children: [
+        _buildHeader(budget),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildOverviewCard(budget, minHeight: 258)),
+            Expanded(child: _buildDonutChart(budget)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildBucketCard(
+                budget: budget,
+                category: BudgetCategory.commitment,
+                label: 'Commitments',
+                subtitle: 'Bills, rent, loans, insurance',
+                percent: '50%',
+                color: colors.accent,
+                icon: Icons.home_rounded,
+              ),
+            ),
+            Expanded(
+              child: _buildBucketCard(
+                budget: budget,
+                category: BudgetCategory.spending,
+                label: 'Spending',
+                subtitle: 'Food, shopping, entertainment',
+                percent: '30%',
+                color: colors.success,
+                icon: Icons.shopping_bag_rounded,
+              ),
+            ),
+            Expanded(
+              child: _buildBucketCard(
+                budget: budget,
+                category: BudgetCategory.savings,
+                label: 'Savings',
+                subtitle: 'Bank, ASB, gold, investments',
+                percent: '20%',
+                color: colors.warning,
+                icon: Icons.savings_rounded,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
   Widget _buildHeader(BudgetModel? budget) {
     final colors = context.colors;
     return Padding(
@@ -170,13 +232,17 @@ class _BudgetScreenState extends State<BudgetScreen>
   // ─────────────────────────────────────────
   // OVERVIEW CARD
   // ─────────────────────────────────────────
-  Widget _buildOverviewCard(BudgetModel? budget) {
+  Widget _buildOverviewCard(BudgetModel? budget, {double? minHeight}) {
     final colors = context.colors;
     final allowance = budget?.monthlyAllowance ?? 0;
     final spent = budget?.totalSpent ?? 0;
     final remaining = allowance - spent;
 
     return Container(
+      constraints: minHeight != null
+          ? BoxConstraints(minHeight: minHeight)
+          : null,
+      alignment: minHeight != null ? Alignment.center : null,
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(

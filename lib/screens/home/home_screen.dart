@@ -7,6 +7,7 @@ import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/core/services/budget_reset_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -75,6 +76,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   stream: _db.transactionsStream(_userId),
                   builder: (context, txSnap) {
                     final transactions = txSnap.data ?? [];
+                    if (isDesktopLayout(context)) {
+                      return SingleChildScrollView(
+                        child: _buildDesktopBody(budget, transactions),
+                      );
+                    }
                     return CustomScrollView(
                       slivers: [
                         SliverToBoxAdapter(
@@ -98,9 +104,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: _buildFAB(),
+      // Desktop: the sidebar replaces the bottom bar (and its docked FAB).
+      bottomNavigationBar: isDesktopLayout(context) ? null : _buildBottomNav(),
+      floatingActionButton: isDesktopLayout(context) ? null : _buildFAB(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+
+  // ─────────────────────────────────────────
+  // DESKTOP BODY — two-column dashboard
+  // ─────────────────────────────────────────
+  Widget _buildDesktopBody(
+    BudgetModel? budget,
+    List<TransactionModel> transactions,
+  ) {
+    return Column(
+      children: [
+        _buildTopBar(),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: _buildBalanceCard(budget)),
+            Expanded(flex: 2, child: _buildBudgetRing(budget)),
+          ],
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: _buildRecentTransactions(transactions)),
+            Expanded(flex: 2, child: _buildQuickActions()),
+          ],
+        ),
+        const SizedBox(height: 40),
+      ],
     );
   }
 
@@ -651,6 +688,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildEmptyTransactions() {
     final colors = context.colors;
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: colors.surface,

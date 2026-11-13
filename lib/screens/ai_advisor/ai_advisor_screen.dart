@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -27,6 +28,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
   List<TransactionModel> _transactions = [];
 
   // ── Replace with your actual Gemini API key ──
+  // Production: requests go through the PocketPlan proxy (worker/), which
+  // holds the Gemini key. GEMINI_API_KEY is only a local-dev fallback.
+  static String get _proxyUrl => dotenv.env['GEMINI_PROXY_URL'] ?? '';
   static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -144,11 +148,26 @@ GUIDELINES:
         .toList();
 
     try {
-      final response = await http.post(
-        Uri.parse(
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      final Uri uri;
+      if (_proxyUrl.isNotEmpty) {
+        final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+        if (token == null) {
+          _handleError('Please sign in again to use the AI advisor.');
+          return;
+        }
+        headers['Authorization'] = 'Bearer $token';
+        uri = Uri.parse(_proxyUrl);
+      } else {
+        debugPrint('WARNING: GEMINI_PROXY_URL not set, calling Gemini directly');
+        uri = Uri.parse(
           'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_apiKey',
-        ),
-        headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final response = await http.post(
+        uri,
+        headers: headers,
         body: jsonEncode({
           'contents': conversationHistory
               .map(
@@ -179,6 +198,10 @@ GUIDELINES:
           );
           _isLoading = false;
         });
+      } else if (response.statusCode == 429) {
+        _handleError(
+          'You have reached today\'s AI limit. Please try again tomorrow.',
+        );
       } else {
         _handleError('Error ${response.statusCode}: ${response.body}');
       }
@@ -222,18 +245,26 @@ GUIDELINES:
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildFinancialContext(),
-            Expanded(
-              child: _messages.length <= 1
-                  ? _buildSuggestionsView()
-                  : _buildChatList(),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isDesktopLayout(context) ? 900 : double.infinity,
             ),
-            if (_isLoading) _buildTypingIndicator(),
-            _buildInputBar(),
-          ],
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildFinancialContext(),
+                Expanded(
+                  child: _messages.length <= 1
+                      ? _buildSuggestionsView()
+                      : _buildChatList(),
+                ),
+                if (_isLoading) _buildTypingIndicator(),
+                _buildInputBar(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -417,11 +448,13 @@ GUIDELINES:
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               childAspectRatio: 2.5,
+              // Desktop: fixed tile height (the ratio makes tiles huge when wide).
+              mainAxisExtent: isDesktopLayout(context) ? 64 : null,
             ),
             itemCount: _suggestions.length,
             itemBuilder: (context, i) {

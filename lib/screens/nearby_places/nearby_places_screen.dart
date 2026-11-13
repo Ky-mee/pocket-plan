@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -299,14 +300,32 @@ out center;
                 _buildLoadingState()
               else
                 Expanded(
-                  child: Column(
-                    children: [
-                      _buildMap(),
-                      _buildStatsBar(),
-                      _buildFilterChips(),
-                      _buildPlacesList(),
-                    ],
-                  ),
+                  child: isDesktopLayout(context)
+                      // Desktop: list + filters on the left, big map on the right.
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: 440,
+                              child: Column(
+                                children: [
+                                  _buildStatsBar(),
+                                  _buildFilterChips(),
+                                  _buildPlacesList(),
+                                ],
+                              ),
+                            ),
+                            Expanded(child: _buildMap(height: double.infinity)),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            _buildMap(),
+                            _buildStatsBar(),
+                            _buildFilterChips(),
+                            _buildPlacesList(),
+                          ],
+                        ),
                 ),
             ],
           ),
@@ -385,7 +404,7 @@ out center;
     );
   }
 
-  Widget _buildMap() {
+  Widget _buildMap({double? height}) {
     final colors = context.colors;
     if (_currentPosition == null) return const SizedBox();
     final userLatLng = LatLng(
@@ -394,8 +413,8 @@ out center;
     );
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      height: 220,
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      height: height ?? 220,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: colors.border),

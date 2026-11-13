@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pocket_plan/core/services/auth_services.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
@@ -284,7 +285,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: SingleChildScrollView(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isDesktopLayout(context) ? 760 : double.infinity,
+              ),
+              child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,6 +408,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 _buildLogoutButton(),
                 const SizedBox(height: 40),
               ],
+            ),
+          ),
             ),
           ),
         ),

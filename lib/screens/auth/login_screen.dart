@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/services/auth_services.dart';
@@ -67,6 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _loginWithEmail() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
@@ -245,6 +247,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         const SizedBox(height: 8),
         TextFormField(
           controller: _emailController,
+          autofocus: kIsWeb,
+          textInputAction: TextInputAction.next,
+          onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
           keyboardType: TextInputType.emailAddress,
           style: TextStyle(color: colors.textPrimary, fontSize: 15),
           validator: (v) {
@@ -275,6 +280,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         TextFormField(
           controller: _passwordController,
           obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _loginWithEmail(),
           style: TextStyle(color: colors.textPrimary, fontSize: 15),
           validator: (v) =>
               v == null || v.isEmpty ? 'Password is required' : null,

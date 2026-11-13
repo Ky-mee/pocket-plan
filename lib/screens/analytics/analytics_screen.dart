@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
@@ -55,7 +56,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           child: Column(
             children: [
               _buildHeader(),
-              _buildTabBar(),
+              isDesktopLayout(context)
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: _buildTabBar(),
+                      ),
+                    )
+                  : _buildTabBar(),
               Expanded(
                 child: StreamBuilder<List<TransactionModel>>(
                   stream: _db.transactionsStream(_userId),
@@ -169,6 +178,57 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     final netSavings = totalIncome - totalExpense;
 
     final barData = _getLast7DaysData(transactions);
+
+    if (isDesktopLayout(context)) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _summaryCard(
+                    'Total Income',
+                    'RM ${totalIncome.toStringAsFixed(2)}',
+                    Icons.arrow_downward_rounded,
+                    context.colors.success,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _summaryCard(
+                    'Total Expense',
+                    'RM ${totalExpense.toStringAsFixed(2)}',
+                    Icons.arrow_upward_rounded,
+                    context.colors.danger,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _summaryCard(
+                    'Net Savings',
+                    'RM ${netSavings.toStringAsFixed(2)}',
+                    Icons.savings_outlined,
+                    netSavings >= 0
+                        ? context.colors.accent
+                        : context.colors.danger,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildBarChart(barData)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildMonthlyStats(transactions)),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
@@ -507,6 +567,30 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       );
     }
 
+    if (isDesktopLayout(context)) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: _buildCategoryPieChart(sorted, totalExpense),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              flex: 3,
+              child: Column(
+                children: sorted
+                    .map((e) => _buildCategoryRow(e.key, e.value, totalExpense))
+                    .toList(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
       child: Column(
@@ -674,6 +758,61 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
 
     final hasData = transactions.any((t) => t.type == TransactionType.expense);
+
+    if (isDesktopLayout(context)) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildNextMonthCard(nextMonth),
+                  const SizedBox(height: 20),
+                  if (hasData) ...[
+                    _buildCategoryBreakdown(nextMonth, currentLimit),
+                    const SizedBox(height: 20),
+                  ],
+                  _buildFuzzyExplainerCard(nextMonth),
+                ],
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '6-Month Spending Forecast',
+                    style: TextStyle(
+                      color: context.colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Powered by fuzzy logic inference',
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSixMonthChart(sixMonths),
+                  const SizedBox(height: 16),
+                  ...sixMonths.asMap().entries.map(
+                    (e) => _buildMonthForecastRow(e.key + 1, e.value),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),

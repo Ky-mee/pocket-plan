@@ -3,7 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
-import 'package:pocket_plan/widgets/atm_numpad.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
+import 'package:pocket_plan/core/utils/amount_input.dart';
+import 'package:pocket_plan/widgets/amount_field.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 
 class AddTransactionScreen extends StatefulWidget {
@@ -16,6 +19,8 @@ class AddTransactionScreen extends StatefulWidget {
 class _AddTransactionScreenState extends State<AddTransactionScreen>
     with TickerProviderStateMixin {
   final _descriptionController = TextEditingController();
+  final _amountController = TextEditingController();
+  DateTime _lastSubmit = DateTime.fromMillisecondsSinceEpoch(0);
   final DatabaseService _db = DatabaseService();
 
   TransactionType _type = TransactionType.expense;
@@ -23,7 +28,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   String _selectedCategory = 'Food & Drinks';
   String _selectedIncomeSource = 'Allowance';
 
-  // ATM-style amount in cents
+  // Amount in cents (kept in sync with the amount text field)
   int _amountCents = 0;
 
   final List<String> _incomeSources = [
@@ -67,6 +72,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   @override
   void dispose() {
     _descriptionController.dispose();
+    _amountController.dispose();
     _slideController.dispose();
     super.dispose();
   }
@@ -74,7 +80,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   List<String> get _currentCategories =>
       TransactionCategories.categories[_budgetCategory] ?? [];
 
+  // Enter key / keyboard "done" / button all come here; ignore double fires.
+  void _submit() {
+    final now = DateTime.now();
+    if (now.difference(_lastSubmit) < const Duration(milliseconds: 400)) return;
+    _lastSubmit = now;
+    _saveTransaction();
+  }
+
   Future<void> _saveTransaction() async {
+    if (_isLoading) return;
     final colors = context.colors;
     if (_amountCents == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -212,7 +227,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     final isIncome = _type == TransactionType.income;
     final color = isIncome ? colors.success : colors.danger;
 
-    return Scaffold(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): _submit,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): _submit,
+      },
+      child: Scaffold(
       backgroundColor: colors.background,
       body: SlideTransition(
         position: _slideAnimation,
@@ -229,15 +249,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       _buildTypeToggle(),
                       const SizedBox(height: 20),
 
-                      // ATM amount display
-                      AtmAmountDisplay(valueCents: _amountCents, color: color),
-                      const SizedBox(height: 16),
-
-                      // ATM numpad
-                      AtmNumpad(
-                        valueCents: _amountCents,
-                        onValueChanged: (val) =>
-                            setState(() => _amountCents = val),
+                      // Amount: type it (device keyboard), Enter saves
+                      AmountField(
+                        controller: _amountController,
+                        color: color,
+                        autofocus: kIsWeb,
+                        onChanged: (text) =>
+                            setState(() => _amountCents = parseCents(text)),
+                        onSubmitted: _submit,
                       ),
                       const SizedBox(height: 20),
 
@@ -266,6 +285,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -346,6 +366,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         onTap: () => setState(() {
           _type = type;
           _amountCents = 0;
+          _amountController.clear();
           _selectedCategory = 'Food & Drinks';
           _budgetCategory = BudgetCategory.spending;
           _selectedIncomeSource = 'Allowance';
@@ -663,7 +684,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         TextField(
           controller: _descriptionController,
           style: TextStyle(color: colors.textPrimary, fontSize: 14),
-          maxLines: 2,
+          maxLines: 1,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
           decoration: InputDecoration(
             hintText: isIncome
                 ? 'e.g. Monthly allowance from parents...'
@@ -740,7 +763,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   Widget _buildSaveButton(bool isIncome, Color color) {
     return GestureDetector(
-      onTap: _isLoading ? null : _saveTransaction,
+      onTap: _isLoading ? null : _submit,
       child: Container(
         width: double.infinity,
         height: 56,

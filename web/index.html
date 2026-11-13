@@ -17,22 +17,37 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6C63FF">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="PocketPlan - personal finance tracker for students: budgets, forecasts and an AI advisor.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="pocket_plan">
+  <meta name="apple-mobile-web-app-title" content="PocketPlan">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>pocket_plan</title>
+  <title>PocketPlan</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body { margin: 0; height: 100%; background: #fff; }
+    #boot { position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 16px;
+            font-family: system-ui, sans-serif; color: #6C63FF; }
+    #boot img { width: 96px; height: 96px; }
+    #boot .bar { width: 120px; height: 4px; border-radius: 2px; background: #e6e4ff; overflow: hidden; }
+    #boot .bar::after { content: ""; display: block; width: 40%; height: 100%; background: #6C63FF;
+                        animation: slide 1.1s ease-in-out infinite; }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+    @media (prefers-color-scheme: dark) { html, body { background: #121212; } }
+  </style>
 </head>
 <body>
+  <div id="boot"><img src="icons/Icon-192.png" alt="PocketPlan"><div class="bar"></div></div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -41,6 +56,12 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    // Remove the loading screen once Flutter draws its first frame.
+    window.addEventListener("flutter-first-frame", function () {
+      var b = document.getElementById("boot"); if (b) b.remove();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

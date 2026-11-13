@@ -55,6 +55,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Future<void> _register() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
@@ -374,6 +375,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             if (v != _passwordController.text) return 'Passwords do not match';
             return null;
           },
+          onSubmit: _nextStep,
         ),
         const SizedBox(height: 32),
         _buildButton(
@@ -432,6 +434,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             if (double.parse(v) <= 0) return 'Amount must be greater than 0';
             return null;
           },
+          onSubmit: _register,
         ),
         const SizedBox(height: 20),
 
@@ -521,6 +524,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     Widget? suffixIcon,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    VoidCallback? onSubmit, // Enter on the last field of a step
   }) {
     final colors = context.colors;
     return Column(
@@ -540,6 +544,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           obscureText: obscure,
           keyboardType: keyboardType,
           validator: validator,
+          textInputAction:
+              onSubmit != null ? TextInputAction.done : TextInputAction.next,
+          onFieldSubmitted: (_) => onSubmit != null
+              ? onSubmit()
+              : FocusScope.of(context).nextFocus(),
           onChanged: (_) => setState(() {}),
           style: TextStyle(color: colors.textPrimary, fontSize: 15),
           decoration: InputDecoration(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
@@ -97,14 +98,45 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: Column(
+        child: isDesktopLayout(context)
+            ? Column(
+                children: [
+                  _buildHeader(),
+                  // Search and type tabs share one row on desktop.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: _buildSearchBar()),
+                      Expanded(flex: 3, child: _buildTabBar()),
+                    ],
+                  ),
+                  _buildFilterChips(),
+                  Expanded(child: _buildTransactionStream()),
+                ],
+              )
+            : Column(
           children: [
             _buildHeader(),
             _buildSearchBar(),
             _buildTabBar(),
             _buildFilterChips(),
             Expanded(
-              child: StreamBuilder<List<TransactionModel>>(
+              child: _buildTransactionStream(),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.of(context).pushNamed('/add-transaction'),
+        backgroundColor: colors.accent,
+        child: const Icon(Icons.add_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildTransactionStream() {
+    final colors = context.colors;
+    return StreamBuilder<List<TransactionModel>>(
                 stream: _db.transactionsStream(_userId),
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
@@ -123,6 +155,43 @@ class _TransactionListScreenState extends State<TransactionListScreen>
 
                   final grouped = _groupByDate(filtered);
                   final dateKeys = grouped.keys.toList();
+
+                  if (isDesktopLayout(context)) {
+                    // Desktop: day groups flow in two columns.
+                    return LayoutBuilder(
+                      builder: (context, c) {
+                        final colW = ((c.maxWidth - 40 - 24) / 2).floorToDouble();
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                          child: Wrap(
+                            spacing: 24,
+                            crossAxisAlignment: WrapCrossAlignment.start,
+                            children: dateKeys.map((dateKey) {
+                              final txs = grouped[dateKey]!;
+                              final dayTotal = txs.fold<double>(
+                                0,
+                                (sum, tx) => tx.type == TransactionType.expense
+                                    ? sum - tx.amount
+                                    : sum + tx.amount,
+                              );
+                              return SizedBox(
+                                width: colW,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 16),
+                                    _buildDateHeader(dateKey, dayTotal),
+                                    const SizedBox(height: 8),
+                                    ...txs.map((tx) => _buildTransactionCard(tx)),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
+                    );
+                  }
 
                   return RefreshIndicator(
                     color: colors.accent,
@@ -156,15 +225,56 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                     ),
                   );
                 },
+              );
+  }
+
+  Future<void> _deleteWithConfirm(TransactionModel tx) async {
+    final dialogColors = context.colors;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: dialogColors.surfaceAlt,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Delete Transaction',
+          style: TextStyle(
+            color: dialogColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure? This will update your budget.',
+          style: TextStyle(color: dialogColors.textSecondary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: dialogColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                color: dialogColors.danger,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).pushNamed('/add-transaction'),
-        backgroundColor: colors.accent,
-        child: const Icon(Icons.add_rounded, color: Colors.white),
+    );
+    if (ok != true) return;
+    await _db.deleteTransaction(tx);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Transaction deleted'),
+        backgroundColor: context.colors.danger,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -626,17 +736,35 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   '${tx.date.day}/${tx.date.month}/${tx.date.year}',
                   style: TextStyle(color: colors.textTertiary, fontSize: 11),
                 ),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => EditTransactionScreen(transaction: tx),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              EditTransactionScreen(transaction: tx),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.edit_outlined,
+                        color: colors.textTertiary,
+                        size: 16,
+                      ),
                     ),
-                  ),
-                  child: Icon(
-                    Icons.edit_outlined,
-                    color: colors.textTertiary,
-                    size: 16,
-                  ),
+                    // Desktop has no swipe gesture: explicit delete button.
+                    if (isDesktopLayout(context)) ...[
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => _deleteWithConfirm(tx),
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          color: colors.danger,
+                          size: 16,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),

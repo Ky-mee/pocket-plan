@@ -1,13 +1,17 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 
 class NotificationService {
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _local =
+  late final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  late final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
 
+  // Push/local notifications are mobile-only for now (web needs a service
+  // worker + VAPID key). Every entry point below is a no-op on web.
   Future<void> initialize() async {
+    if (kIsWeb) return;
     // Request permission (iOS requires explicit permission)
     await _fcm.requestPermission(alert: true, badge: true, sound: true);
 
@@ -33,6 +37,7 @@ class NotificationService {
 
   // Get FCM token (save this to Firestore for targeted notifications)
   Future<String?> getToken() async {
+    if (kIsWeb) return null;
     return await _fcm.getToken();
   }
 
@@ -42,6 +47,7 @@ class NotificationService {
     required String body,
     int id = 0,
   }) async {
+    if (kIsWeb) return;
     const androidDetails = AndroidNotificationDetails(
       'pocketplan_alerts',
       'Budget Alerts',

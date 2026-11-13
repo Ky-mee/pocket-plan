@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:pocket_plan/core/utils/amount_input.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
@@ -24,6 +26,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   late String _selectedCategory;
   late DateTime _selectedDate;
   bool _isLoading = false;
+  DateTime _lastSubmit = DateTime.fromMillisecondsSinceEpoch(0);
 
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
@@ -63,7 +66,16 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     super.dispose();
   }
 
+  // Enter key / keyboard "done" / button all come here; ignore double fires.
+  void _submit() {
+    final now = DateTime.now();
+    if (now.difference(_lastSubmit) < const Duration(milliseconds: 400)) return;
+    _lastSubmit = now;
+    _saveEdit();
+  }
+
   Future<void> _saveEdit() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
@@ -184,7 +196,12 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Scaffold(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): _submit,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): _submit,
+      },
+      child: Scaffold(
       backgroundColor: colors.background,
       body: SlideTransition(
         position: _slideAnimation,
@@ -223,6 +240,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -364,6 +382,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
         TextFormField(
           controller: _amountController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [AmountInputFormatter()],
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _submit(),
           style: TextStyle(
             color: color,
             fontSize: 28,
@@ -530,7 +551,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
         TextFormField(
           controller: _descriptionController,
           style: TextStyle(color: colors.textPrimary, fontSize: 14),
-          maxLines: 2,
+          maxLines: 1,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _submit(),
           decoration: InputDecoration(
             hintText: 'e.g. Lunch at Pak Ali, Monthly rent...',
             hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
@@ -613,7 +636,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
         ? colors.danger
         : colors.success;
     return GestureDetector(
-      onTap: _isLoading ? null : _saveEdit,
+      onTap: _isLoading ? null : _submit,
       child: Container(
         width: double.infinity,
         height: 56,

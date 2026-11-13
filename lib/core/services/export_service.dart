@@ -1,6 +1,7 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:csv/csv.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -38,14 +39,11 @@ class ExportService {
     }
 
     final csv = const ListToCsvConverter().convert(rows);
-    final dir = await getTemporaryDirectory();
-    final file = File(
-      '${dir.path}/pocketplan_transactions_${DateTime.now().millisecondsSinceEpoch}.csv',
-    );
-    await file.writeAsString(csv);
-
-    await Share.shareXFiles(
-      [XFile(file.path)],
+    await _deliver(
+      bytes: Uint8List.fromList(utf8.encode(csv)),
+      fileName:
+          'pocketplan_transactions_${DateTime.now().millisecondsSinceEpoch}.csv',
+      mimeType: 'text/csv',
       subject: 'PocketPlan Transactions Export',
       text: 'My transaction history from PocketPlan',
     );
@@ -185,14 +183,10 @@ class ExportService {
       ),
     );
 
-    final dir = await getTemporaryDirectory();
-    final file = File(
-      '${dir.path}/pocketplan_report_${DateTime.now().millisecondsSinceEpoch}.pdf',
-    );
-    await file.writeAsBytes(await pdf.save());
-
-    await Share.shareXFiles(
-      [XFile(file.path)],
+    await _deliver(
+      bytes: await pdf.save(),
+      fileName: 'pocketplan_report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      mimeType: 'application/pdf',
       subject: 'PocketPlan Transaction Report',
       text: 'My financial report from PocketPlan',
     );
@@ -201,6 +195,24 @@ class ExportService {
   // ─────────────────────────────────────────
   // HELPERS
   // ─────────────────────────────────────────
+
+  // Web: download the file in the browser. Mobile: open the share sheet.
+  // Uses in-memory bytes (no dart:io), so it compiles for every platform.
+  static Future<void> _deliver({
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+    required String subject,
+    required String text,
+  }) async {
+    final file = XFile.fromData(bytes, name: fileName, mimeType: mimeType);
+    if (kIsWeb) {
+      await file.saveTo(fileName); // path is ignored on web → browser download
+      return;
+    }
+    await Share.shareXFiles([file], subject: subject, text: text);
+  }
+
   static pw.Widget _pdfSummaryCard(String label, String value, PdfColor color) {
     return pw.Expanded(
       child: pw.Container(

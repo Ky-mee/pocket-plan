@@ -23,6 +23,9 @@ import 'package:pocket_plan/core/themes/light_theme.dart';
 import 'package:pocket_plan/core/themes/dark_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:pocket_plan/core/services/notification_service.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
+
+final RouteTracker _routeTracker = RouteTracker();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,6 +52,13 @@ class PocketPlanApp extends ConsumerWidget {
       theme: buildLightTheme(accent),
       darkTheme: buildDarkTheme(accent),
       themeMode: themeMode,
+      navigatorKey: appNavigatorKey,
+      navigatorObservers: [_routeTracker],
+      // Web (wide screens): sidebar + wide content pane. Mobile: unchanged.
+      builder: (context, child) => DesktopShell(
+        tracker: _routeTracker,
+        child: child ?? const SizedBox.shrink(),
+      ),
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),

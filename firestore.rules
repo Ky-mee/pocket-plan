@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// PocketPlan: every document belongs to exactly one signed-in user.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // users/{uid} and everything under it (preferences, budget_history, ...)
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // One budget and one prediction document per user, keyed by uid.
+    match /budgets/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+    match /predictions/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Transactions are keyed by auto-id and carry a userId field.
+    match /transactions/{id} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      // Owner only, and the owner can never be changed.
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Everything else is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
