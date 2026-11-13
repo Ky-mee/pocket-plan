@@ -8,7 +8,7 @@ FIREBASE_PROJECT_ID = "pocketplan-3926e"
 # Add your Firebase Hosting URL(s) here, e.g. https://pocketplan-3926e.web.app
 ALLOWED_ORIGINS = "https://pocketplan-3926e.web.app,https://pocketplan-3926e.firebaseapp.com"
 # Dev only: allow http://localhost:<any port>. Set to "false" for production.
-ALLOW_LOCALHOST = "true"
+ALLOW_LOCALHOST = "false"
 # AI chats per user per day.
 DAILY_LIMIT = "30"
 
