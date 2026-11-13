@@ -71,7 +71,7 @@ class BudgetResetService {
       'Nov',
       'Dec',
     ];
-    final idx = int.tryParse(parts[1] ?? '1') ?? 1;
+    final idx = int.tryParse(parts[1]) ?? 1;
     return '${months[idx - 1]} ${parts[0]}';
   }
 
