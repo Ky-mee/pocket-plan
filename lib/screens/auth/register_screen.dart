@@ -204,7 +204,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             )
           else
             GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  Navigator.of(context).pushReplacementNamed('/login');
+                }
+              },
               child: Container(
                 width: 40,
                 height: 40,

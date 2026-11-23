@@ -153,4 +153,24 @@ class BudgetModel {
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
+
+  BudgetModel copyWith({
+    String? userId,
+    double? monthlyAllowance,
+    BucketData? commitments,
+    BucketData? spendings,
+    BucketData? savings,
+    String? month,
+    DateTime? updatedAt,
+  }) {
+    return BudgetModel(
+      userId: userId ?? this.userId,
+      monthlyAllowance: monthlyAllowance ?? this.monthlyAllowance,
+      commitments: commitments ?? this.commitments,
+      spendings: spendings ?? this.spendings,
+      savings: savings ?? this.savings,
+      month: month ?? this.month,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

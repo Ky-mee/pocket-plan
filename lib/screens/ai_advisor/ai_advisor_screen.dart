@@ -1,9 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
@@ -26,12 +27,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
   bool _isLoading = false;
   BudgetModel? _budget;
   List<TransactionModel> _transactions = [];
+  StreamSubscription<BudgetModel?>? _budgetSub;
+  StreamSubscription<List<TransactionModel>>? _txSub;
 
-  // ── Replace with your actual Gemini API key ──
   // Production: requests go through the PocketPlan proxy (worker/), which
-  // holds the Gemini key. GEMINI_API_KEY is only a local-dev fallback.
+  // holds the Gemini key.
   static String get _proxyUrl => dotenv.env['GEMINI_PROXY_URL'] ?? '';
-  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -54,16 +55,18 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
 
   @override
   void dispose() {
+    _budgetSub?.cancel();
+    _txSub?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _loadUserData() async {
-    _db.budgetStream(_userId).listen((budget) {
+    _budgetSub = _db.budgetStream(_userId).listen((budget) {
       if (mounted) setState(() => _budget = budget);
     });
-    _db.transactionsStream(_userId).listen((txs) {
+    _txSub = _db.transactionsStream(_userId).listen((txs) {
       if (mounted) setState(() => _transactions = txs);
     });
   }
@@ -76,6 +79,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
         isUser: false,
         timestamp: DateTime.now(),
         hasAnimated: true,
+        isWelcome: true,
       ),
     );
   }
@@ -141,29 +145,30 @@ GUIDELINES:
     _scrollToBottom();
 
     final conversationHistory = _messages
-        .where((m) => !m.isTyping)
+        .where((m) => !m.isTyping && !m.isWelcome && !m.isError)
         .map(
           (m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text},
         )
         .toList();
 
     try {
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      final Uri uri;
-      if (_proxyUrl.isNotEmpty) {
-        final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-        if (token == null) {
-          _handleError('Please sign in again to use the AI advisor.');
-          return;
-        }
-        headers['Authorization'] = 'Bearer $token';
-        uri = Uri.parse(_proxyUrl);
-      } else {
-        debugPrint('WARNING: GEMINI_PROXY_URL not set, calling Gemini directly');
-        uri = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_apiKey',
+      if (_proxyUrl.isEmpty) {
+        _handleError(
+          'AI Advisor is not configured. Please try again later.',
         );
+        return;
       }
+
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token == null) {
+        _handleError('Please sign in again to use the AI advisor.');
+        return;
+      }
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+      final uri = Uri.parse(_proxyUrl);
 
       final response = await http.post(
         uri,
@@ -198,16 +203,23 @@ GUIDELINES:
           );
           _isLoading = false;
         });
+      } else if (response.statusCode == 401) {
+        _handleError('Session expired. Please sign in again.');
       } else if (response.statusCode == 429) {
         _handleError(
           'You have reached today\'s AI limit. Please try again tomorrow.',
         );
       } else {
-        _handleError('Error ${response.statusCode}: ${response.body}');
+        debugPrint('AI proxy error ${response.statusCode}: ${response.body}');
+        _handleError(
+          'Unable to reach AI Advisor right now. Please try again.',
+        );
       }
     } catch (e) {
-      debugPrint('ERROR: $e');
-      _handleError('Error: $e');
+      debugPrint('AI advisor request failed: $e');
+      _handleError(
+        'Connection failed. Please check your internet and try again.',
+      );
     }
 
     _scrollToBottom();
@@ -618,6 +630,7 @@ GUIDELINES:
                     )
                   : TypewriterText(
                       text: msg.text,
+                      onComplete: () => msg.hasAnimated = true,
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontSize: 14,
@@ -784,6 +797,7 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isError;
   final bool isTyping;
+  final bool isWelcome;
   bool hasAnimated;
 
   ChatMessage({
@@ -792,6 +806,7 @@ class ChatMessage {
     required this.timestamp,
     this.isError = false,
     this.isTyping = false,
+    this.isWelcome = false,
     this.hasAnimated = false,
   });
 }
@@ -800,12 +815,14 @@ class TypewriterText extends StatefulWidget {
   final String text;
   final TextStyle? style;
   final Duration speed;
+  final VoidCallback? onComplete;
 
   const TypewriterText({
     super.key,
     required this.text,
     this.style,
     this.speed = const Duration(milliseconds: 12),
+    this.onComplete,
   });
 
   @override
@@ -832,8 +849,13 @@ class _TypewriterTextState extends State<TypewriterText> {
           _charIndex++;
           _displayedText = widget.text.substring(0, _charIndex);
         });
+        if (_charIndex >= widget.text.length) {
+          widget.onComplete?.call();
+          return false;
+        }
         return true;
       }
+      widget.onComplete?.call();
       return false;
     });
   }

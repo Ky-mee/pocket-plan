@@ -6,6 +6,7 @@ import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
+import 'package:pocket_plan/core/utils/amount_input.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -53,8 +54,21 @@ class _BudgetScreenState extends State<BudgetScreen>
           child: StreamBuilder<BudgetModel?>(
             stream: _db.budgetStream(_userId),
             builder: (context, snap) {
+              if (snap.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Could not load budget. Please check your connection.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: colors.textSecondary),
+                    ),
+                  ),
+                );
+              }
               final budget = snap.data;
-              if (snap.connectionState == ConnectionState.waiting) {
+              if (snap.connectionState == ConnectionState.waiting &&
+                  !snap.hasData) {
                 return Center(
                   child: CircularProgressIndicator(color: colors.accent),
                 );
@@ -657,8 +671,8 @@ class _BudgetScreenState extends State<BudgetScreen>
           ),
 
           // Items list
-          if (bucket != null && bucket.items.isNotEmpty)
-            _buildItemsList(bucket.items, color, budget!, category),
+          if (budget != null && bucket != null)
+            _buildItemsList(bucket.items, color, budget, category),
         ],
       ),
     );
@@ -722,36 +736,90 @@ class _BudgetScreenState extends State<BudgetScreen>
             ],
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: items
-                .map(
-                  (item) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: color.withOpacity(0.2)),
-                    ),
-                    child: Text(
-                      item,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+          if (items.isEmpty)
+            Text(
+              'No tracked items yet. Tap + to add.',
+              style: TextStyle(color: colors.textTertiary, fontSize: 12),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: items.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final item = entry.value;
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
                   ),
-                )
-                .toList(),
-          ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: color.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        item,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => _removeBucketItem(
+                          items: items,
+                          removeIndex: idx,
+                          category: category,
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 14,
+                          color: color.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _removeBucketItem({
+    required List<String> items,
+    required int removeIndex,
+    required BudgetCategory category,
+  }) async {
+    final bucketField = switch (category) {
+      BudgetCategory.commitment => 'commitments',
+      BudgetCategory.spending => 'spendings',
+      BudgetCategory.savings => 'savings',
+    };
+    final updated = List<String>.from(items)..removeAt(removeIndex);
+    try {
+      await _db.updateBucketItems(
+        userId: _userId,
+        bucketField: bucketField,
+        items: updated,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Could not remove item. Please try again.'),
+            backgroundColor: context.colors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   // ─────────────────────────────────────────
@@ -777,6 +845,7 @@ class _BudgetScreenState extends State<BudgetScreen>
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [AmountInputFormatter()],
           style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
             prefixText: 'RM ',
@@ -805,8 +874,21 @@ class _BudgetScreenState extends State<BudgetScreen>
             onPressed: () async {
               final val = double.tryParse(ctrl.text);
               if (val != null && val > 0) {
-                await _db.updateAllowance(_userId, val);
-                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await _db.updateAllowance(_userId, val);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (_) {
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Failed to update allowance.'),
+                        backgroundColor: context.colors.danger,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
               }
             },
             child: Text(
@@ -846,6 +928,7 @@ class _BudgetScreenState extends State<BudgetScreen>
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [AmountInputFormatter()],
           style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
             prefixText: 'RM ',
@@ -888,13 +971,26 @@ class _BudgetScreenState extends State<BudgetScreen>
                     savingsLimit = val;
                     break;
                 }
-                await _db.updateBudgetLimits(
-                  userId: _userId,
-                  commitmentLimit: commitmentLimit,
-                  spendingLimit: spendingLimit,
-                  savingsLimit: savingsLimit,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await _db.updateBudgetLimits(
+                    userId: _userId,
+                    commitmentLimit: commitmentLimit,
+                    spendingLimit: spendingLimit,
+                    savingsLimit: savingsLimit,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (_) {
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Failed to update limit.'),
+                        backgroundColor: context.colors.danger,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
               }
             },
             child: Text(
@@ -972,12 +1068,25 @@ class _BudgetScreenState extends State<BudgetScreen>
                     break;
                 }
                 final newItems = [...bucket.items, ctrl.text.trim()];
-                await _db.updateBucketItems(
-                  userId: _userId,
-                  bucketField: bucketField,
-                  items: newItems,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await _db.updateBucketItems(
+                    userId: _userId,
+                    bucketField: bucketField,
+                    items: newItems,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (_) {
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Failed to add item.'),
+                        backgroundColor: context.colors.danger,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
               }
             },
             child: Text(

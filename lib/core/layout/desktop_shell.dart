@@ -100,7 +100,6 @@ const _appRoutes = <String>{
   '/nearby-places',
   '/settings',
   '/help',
-  '/appearance',
 };
 
 // Signed-out routes shown as a split screen: brand panel + form.

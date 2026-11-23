@@ -1,10 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
-import 'package:pocket_plan/models/user_model.dart';
-import 'package:pocket_plan/models/transaction_model.dart';
-import 'package:pocket_plan/models/budget_model.dart';
-import 'package:pocket_plan/models/prediction_model.dart';
 import 'package:pocket_plan/core/services/notification_service.dart';
+import 'package:pocket_plan/core/utils/budget_calculator.dart';
+import 'package:pocket_plan/models/budget_model.dart';
+import 'package:pocket_plan/models/transaction_model.dart';
+import 'package:pocket_plan/models/user_model.dart';
 
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -15,7 +14,6 @@ class DatabaseService {
   CollectionReference get _users => _db.collection('users');
   CollectionReference get _transactions => _db.collection('transactions');
   CollectionReference get _budgets => _db.collection('budgets');
-  CollectionReference get _predictions => _db.collection('predictions');
 
   // ─────────────────────────────────────────
   // USER operations
@@ -26,7 +24,7 @@ class DatabaseService {
     await _users.doc(user.uid).set(user.toFirestore());
 
     // Also create initial budget for current month
-    final month = DateFormat('yyyy-MM').format(DateTime.now());
+    final month = BudgetCalculator.monthKey(DateTime.now());
     final budget = BudgetModel.fromAllowance(
       userId: user.uid,
       allowance: user.monthlyAllowance,
@@ -55,59 +53,109 @@ class DatabaseService {
     await _users.doc(uid).update(fields);
   }
 
-  // Update monthly allowance and recalculate budget
+  // Update monthly allowance while preserving current month's spent,
+  // carried-forward bonuses, and custom tracked items.
   Future<void> updateAllowance(String uid, double newAllowance) async {
-    await _users.doc(uid).update({'monthlyAllowance': newAllowance});
-    final month = DateFormat('yyyy-MM').format(DateTime.now());
-    final budget = BudgetModel.fromAllowance(
-      userId: uid,
-      allowance: newAllowance,
-      month: month,
-    );
-    await createOrUpdateBudget(uid, budget);
+    await _db.runTransaction((txn) async {
+      final budgetRef = _budgets.doc(uid);
+      final budgetDoc = await txn.get(budgetRef);
+      final userRef = _users.doc(uid);
+
+      txn.update(userRef, {'monthlyAllowance': newAllowance});
+
+      if (budgetDoc.exists) {
+        final existing = BudgetModel.fromFirestore(budgetDoc);
+        final updated = BudgetCalculator.updateAllowance(
+          existing,
+          newAllowance,
+        );
+        txn.set(budgetRef, updated.toFirestore());
+      } else {
+        final month = BudgetCalculator.monthKey(DateTime.now());
+        final budget = BudgetModel.fromAllowance(
+          userId: uid,
+          allowance: newAllowance,
+          month: month,
+        );
+        txn.set(budgetRef, budget.toFirestore());
+      }
+    });
   }
 
   // ─────────────────────────────────────────
   // TRANSACTION operations
   // ─────────────────────────────────────────
 
-  // Add a new transaction
+  // Add a new transaction and atomically update the active month's budget.
   Future<String> addTransaction(TransactionModel transaction) async {
-    final ref = await _transactions.add(transaction.toFirestore());
+    final txRef = _transactions.doc();
+    final updatedBudget = await _db.runTransaction<BudgetModel?>((txn) async {
+      final budgetRef = _budgets.doc(transaction.userId);
+      final budgetDoc = await txn.get(budgetRef);
 
-    // Update the relevant budget bucket spent amount
-    await _updateBudgetSpent(
-      userId: transaction.userId,
-      bucketCategory: transaction.budgetCategory,
-      amount: transaction.type == TransactionType.expense
-          ? transaction.amount
-          : -transaction.amount, // subtract if income
-    );
+      txn.set(txRef, transaction.toFirestore());
 
-    final budget = await budgetStream(transaction.userId).first;
-    if (budget != null) {
+      if (!budgetDoc.exists) return null;
+      final existing = BudgetModel.fromFirestore(budgetDoc);
+      final updated = BudgetCalculator.applyTransaction(existing, transaction);
+      txn.set(budgetRef, updated.toFirestore());
+      return updated;
+    });
+
+    if (updatedBudget != null && transaction.type == TransactionType.expense) {
       final prefs = await getPreferences(transaction.userId);
       final notificationsEnabled = prefs['notificationsEnabled'] ?? true;
       if (notificationsEnabled) {
-        await NotificationService().checkBudgetAlerts(budget);
+        await NotificationService().checkBudgetAlerts(updatedBudget);
       }
     }
 
-    return ref.id;
+    return txRef.id;
   }
 
-  // Delete a transaction and reverse its budget impact
-  Future<void> deleteTransaction(TransactionModel transaction) async {
-    await _transactions.doc(transaction.id).delete();
+  // Atomically update a transaction and transition the budget from oldTx to newTx.
+  Future<void> updateTransaction(
+    TransactionModel oldTx,
+    TransactionModel newTx,
+  ) async {
+    final updatedBudget = await _db.runTransaction<BudgetModel?>((txn) async {
+      final budgetRef = _budgets.doc(oldTx.userId);
+      final budgetDoc = await txn.get(budgetRef);
 
-    // Reverse the budget impact
-    await _updateBudgetSpent(
-      userId: transaction.userId,
-      bucketCategory: transaction.budgetCategory,
-      amount: transaction.type == TransactionType.expense
-          ? -transaction.amount
-          : transaction.amount,
-    );
+      txn.update(_transactions.doc(oldTx.id), newTx.toFirestore());
+
+      if (!budgetDoc.exists) return null;
+      final existing = BudgetModel.fromFirestore(budgetDoc);
+      final updated = BudgetCalculator.applyEdit(existing, oldTx, newTx);
+      txn.set(budgetRef, updated.toFirestore());
+      return updated;
+    });
+
+    if (updatedBudget != null && newTx.type == TransactionType.expense) {
+      final prefs = await getPreferences(newTx.userId);
+      final notificationsEnabled = prefs['notificationsEnabled'] ?? true;
+      if (notificationsEnabled) {
+        await NotificationService().checkBudgetAlerts(updatedBudget);
+      }
+    }
+  }
+
+  // Delete a transaction and atomically reverse its budget impact.
+  Future<void> deleteTransaction(TransactionModel transaction) async {
+    await _db.runTransaction((txn) async {
+      final budgetRef = _budgets.doc(transaction.userId);
+      final budgetDoc = await txn.get(budgetRef);
+
+      txn.delete(_transactions.doc(transaction.id));
+
+      if (!budgetDoc.exists) return;
+      final existing = BudgetModel.fromFirestore(budgetDoc);
+      final updated = BudgetCalculator.reverseTransaction(
+        existing,
+        transaction,
+      );
+      txn.set(budgetRef, updated.toFirestore());
+    });
   }
 
   // Get all transactions for a user (real-time stream)
@@ -175,18 +223,26 @@ class DatabaseService {
     });
   }
 
-  // Update custom budget limits (when user customizes 50/30/20)
+  // Update custom budget limits (also updates baseLimit so resets keep them)
   Future<void> updateBudgetLimits({
     required String userId,
     required double commitmentLimit,
     required double spendingLimit,
     required double savingsLimit,
   }) async {
-    await _budgets.doc(userId).update({
-      'commitments.limit': commitmentLimit,
-      'spendings.limit': spendingLimit,
-      'savings.limit': savingsLimit,
-      'updatedAt': Timestamp.now(),
+    await _db.runTransaction((txn) async {
+      final budgetRef = _budgets.doc(userId);
+      final budgetDoc = await txn.get(budgetRef);
+      if (!budgetDoc.exists) return;
+
+      final existing = BudgetModel.fromFirestore(budgetDoc);
+      final updated = BudgetCalculator.updateBucketLimits(
+        existing,
+        commitmentLimit: commitmentLimit,
+        spendingLimit: spendingLimit,
+        savingsLimit: savingsLimit,
+      );
+      txn.set(budgetRef, updated.toFirestore());
     });
   }
 
@@ -198,24 +254,6 @@ class DatabaseService {
   }) async {
     await _budgets.doc(userId).update({
       '$bucketField.items': items,
-      'updatedAt': Timestamp.now(),
-    });
-  }
-
-  // Internal: update spent amount when transaction is added/deleted
-  Future<void> _updateBudgetSpent({
-    required String userId,
-    required BudgetCategory bucketCategory,
-    required double amount,
-  }) async {
-    final field = switch (bucketCategory) {
-      BudgetCategory.commitment => 'commitments.spent',
-      BudgetCategory.spending => 'spendings.spent',
-      BudgetCategory.savings => 'savings.spent',
-    };
-
-    await _budgets.doc(userId).update({
-      field: FieldValue.increment(amount),
       'updatedAt': Timestamp.now(),
     });
   }
@@ -251,49 +289,5 @@ class DatabaseService {
         .doc('settings')
         .snapshots()
         .map((doc) => doc.exists ? doc.data() ?? {} : {});
-  }
-
-  // ─────────────────────────────────────────
-  // PREDICTION operations
-  // ─────────────────────────────────────────
-
-  Future<void> savePrediction(PredictionModel prediction) async {
-    await _predictions.doc(prediction.userId).set(prediction.toFirestore());
-  }
-
-  Future<PredictionModel?> getPrediction(String userId) async {
-    final doc = await _predictions.doc(userId).get();
-    if (!doc.exists) return null;
-    return PredictionModel.fromFirestore(doc);
-  }
-
-  // Get monthly totals for last N months (used to calculate prediction)
-  Future<List<double>> getMonthlyTotals(String userId, {int months = 3}) async {
-    final List<double> totals = [];
-    final now = DateTime.now();
-
-    for (int i = months; i >= 1; i--) {
-      final month = DateTime(now.year, now.month - i, 1);
-      final start = DateTime(month.year, month.month, 1);
-      final end = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
-
-      final snap = await _transactions
-          .where('userId', isEqualTo: userId)
-          .where('type', isEqualTo: 'expense')
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
-          .get();
-
-      final total = snap.docs.fold<double>(
-        0,
-        (sum, doc) =>
-            sum +
-            ((doc.data() as Map<String, dynamic>)['amount'] as num).toDouble(),
-      );
-
-      totals.add(total);
-    }
-
-    return totals;
   }
 }

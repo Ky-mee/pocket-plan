@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -31,15 +30,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   // Amount in cents (kept in sync with the amount text field)
   int _amountCents = 0;
 
-  final List<String> _incomeSources = [
-    'Allowance',
-    'Part-time Job',
-    'PTPTN',
-    'MARA',
-    'Scholarship',
-    'Freelance',
-    'Other',
-  ];
+  final List<String> _incomeSources = TransactionCategories.incomeSources;
 
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
@@ -168,14 +159,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       createdAt: DateTime.now(),
     );
     await _db.addTransaction(tx);
-
-    await FirebaseFirestore.instance.collection('budgets').doc(_userId).update({
-      'commitments.limit': FieldValue.increment(amount * 0.50),
-      'spendings.limit': FieldValue.increment(amount * 0.30),
-      'savings.limit': FieldValue.increment(amount * 0.20),
-      'monthlyAllowance': FieldValue.increment(amount),
-      'updatedAt': Timestamp.now(),
-    });
   }
 
   Future<void> _saveExpenseTransaction(double amount) async {

@@ -18,7 +18,6 @@ import 'package:pocket_plan/providers/theme_provider.dart';
 import 'package:pocket_plan/providers/accent_color_provider.dart';
 import 'package:pocket_plan/screens/onboarding/onboarding_screen.dart';
 import 'package:pocket_plan/screens/help/help_screen.dart';
-import 'package:pocket_plan/screens/settings/appearance_screen.dart';
 import 'package:pocket_plan/core/themes/light_theme.dart';
 import 'package:pocket_plan/core/themes/dark_theme.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -75,7 +74,6 @@ class PocketPlanApp extends ConsumerWidget {
         '/nearby-places': (context) => const NearbyPlacesScreen(),
         '/onboarding': (context) => const OnboardingScreen(),
         '/help': (context) => const HelpScreen(),
-        '/appearance': (context) => const AppearanceScreen(),
       },
     );
   }

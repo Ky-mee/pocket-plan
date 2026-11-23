@@ -79,6 +79,16 @@ class TransactionModel {
 
 // Predefined categories for each bucket
 class TransactionCategories {
+  static const List<String> incomeSources = [
+    'Allowance',
+    'Part-time Job',
+    'PTPTN',
+    'MARA',
+    'Scholarship',
+    'Freelance',
+    'Other',
+  ];
+
   static const Map<BudgetCategory, List<String>> categories = {
     BudgetCategory.commitment: [
       'House / Rent',

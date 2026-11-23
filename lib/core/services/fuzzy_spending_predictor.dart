@@ -1,3 +1,4 @@
+import 'package:pocket_plan/core/utils/budget_calculator.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 
 // ═══════════════════════════════════════════════════════════
@@ -40,9 +41,18 @@ class FuzzySpendingPredictor {
   static FuzzyForecastResult predictNextMonth({
     required List<TransactionModel> transactions,
     required double currentMonthLimit,
+    double? commitmentLimit,
+    double? spendingLimit,
+    double? savingsLimit,
     int monthsOfHistory = 6,
+    DateTime? now,
   }) {
-    final monthlyTotals = _aggregateByMonth(transactions, monthsOfHistory);
+    final refNow = now ?? DateTime.now();
+    final monthlyTotals = _aggregateByMonth(
+      transactions,
+      monthsOfHistory,
+      refNow,
+    );
 
     if (monthlyTotals.isEmpty) {
       return FuzzyForecastResult(
@@ -65,21 +75,28 @@ class FuzzySpendingPredictor {
         ? (monthlyTotals.last / currentMonthLimit)
         : 0.0;
 
+    final effectiveCommitmentLimit = commitmentLimit ?? currentMonthLimit * 0.5;
+    final effectiveSpendingLimit = spendingLimit ?? currentMonthLimit * 0.3;
+    final effectiveSavingsLimit = savingsLimit ?? currentMonthLimit * 0.2;
+
     // ── Per-bucket totals ──
     final commitmentTotals = _aggregateByMonthAndBucket(
       transactions,
       monthsOfHistory,
       'commitment',
+      refNow,
     );
     final spendingTotals = _aggregateByMonthAndBucket(
       transactions,
       monthsOfHistory,
       'spending',
+      refNow,
     );
     final savingsTotals = _aggregateByMonthAndBucket(
       transactions,
       monthsOfHistory,
       'savings',
+      refNow,
     );
 
     final commitmentAvg = _average(commitmentTotals);
@@ -92,23 +109,23 @@ class FuzzySpendingPredictor {
       commitmentTotals,
       commitmentAvg,
     );
-    final commitmentUtil = currentMonthLimit > 0
+    final commitmentUtil = effectiveCommitmentLimit > 0
         ? (commitmentTotals.isNotEmpty ? commitmentTotals.last : 0) /
-              (currentMonthLimit * 0.5)
+              effectiveCommitmentLimit
         : 0.0;
 
     final spendingSlope = _trendSlope(spendingTotals);
     final spendingVol = _coefficientOfVariation(spendingTotals, spendingAvg);
-    final spendingUtil = currentMonthLimit > 0
+    final spendingUtil = effectiveSpendingLimit > 0
         ? (spendingTotals.isNotEmpty ? spendingTotals.last : 0) /
-              (currentMonthLimit * 0.3)
+              effectiveSpendingLimit
         : 0.0;
 
     final savingsSlope = _trendSlope(savingsTotals);
     final savingsVol = _coefficientOfVariation(savingsTotals, savingsAvg);
-    final savingsUtil = currentMonthLimit > 0
+    final savingsUtil = effectiveSavingsLimit > 0
         ? (savingsTotals.isNotEmpty ? savingsTotals.last : 0) /
-              (currentMonthLimit * 0.2)
+              effectiveSavingsLimit
         : 0.0;
 
     // Overall inference
@@ -117,6 +134,7 @@ class FuzzySpendingPredictor {
       trendSlope: trendSlope,
       volatility: volatility,
       utilization: utilization,
+      historyMonths: monthlyTotals.length,
     );
 
     // Per-bucket inference
@@ -126,6 +144,7 @@ class FuzzySpendingPredictor {
             trendSlope: commitmentSlope,
             volatility: commitmentVol,
             utilization: commitmentUtil,
+            historyMonths: commitmentTotals.length,
           )
         : null;
 
@@ -135,6 +154,7 @@ class FuzzySpendingPredictor {
             trendSlope: spendingSlope,
             volatility: spendingVol,
             utilization: spendingUtil,
+            historyMonths: spendingTotals.length,
           )
         : null;
 
@@ -144,6 +164,7 @@ class FuzzySpendingPredictor {
             trendSlope: savingsSlope,
             volatility: savingsVol,
             utilization: savingsUtil,
+            historyMonths: savingsTotals.length,
           )
         : null;
 
@@ -166,10 +187,19 @@ class FuzzySpendingPredictor {
   static List<FuzzyForecastResult> predictSixMonths({
     required List<TransactionModel> transactions,
     required double currentMonthLimit,
+    double? commitmentLimit,
+    double? spendingLimit,
+    double? savingsLimit,
     int monthsOfHistory = 6,
+    DateTime? now,
   }) {
+    final refNow = now ?? DateTime.now();
     final results = <FuzzyForecastResult>[];
-    final monthlyTotals = _aggregateByMonth(transactions, monthsOfHistory);
+    final monthlyTotals = _aggregateByMonth(
+      transactions,
+      monthsOfHistory,
+      refNow,
+    );
 
     if (monthlyTotals.isEmpty) {
       return List.generate(
@@ -185,8 +215,19 @@ class FuzzySpendingPredictor {
       );
     }
 
+    // Compute 1-month bucket breakdown once outside the 6-month loop.
+    final nextMonth = predictNextMonth(
+      transactions: transactions,
+      currentMonthLimit: currentMonthLimit,
+      commitmentLimit: commitmentLimit,
+      spendingLimit: spendingLimit,
+      savingsLimit: savingsLimit,
+      monthsOfHistory: monthsOfHistory,
+      now: refNow,
+    );
+
     final workingHistory = List<double>.from(monthlyTotals);
-    double workingLimit = currentMonthLimit;
+    final double workingLimit = currentMonthLimit;
 
     for (int month = 1; month <= 6; month++) {
       final average = _average(workingHistory);
@@ -203,17 +244,15 @@ class FuzzySpendingPredictor {
         trendSlope: trendSlope,
         volatility: volatility,
         utilization: utilization,
+        historyMonths: monthlyTotals.length,
         confidenceMultiplier: horizonDecay.clamp(0.4, 1.0),
       );
 
-      // Per-bucket for each future month (simplified proportional split
-      // based on next-month bucket ratios, since we don't re-aggregate
-      // per bucket for all 6 months to keep performance reasonable)
-      final nextMonth = predictNextMonth(
-        transactions: transactions,
-        currentMonthLimit: currentMonthLimit,
-        monthsOfHistory: monthsOfHistory,
-      );
+      final double cappedConfidence = results.isNotEmpty &&
+              overall.confidenceScore > results.last.confidenceScore
+          ? results.last.confidenceScore
+          : overall.confidenceScore;
+
       final totalNext = nextMonth.predictedAmount > 0
           ? nextMonth.predictedAmount
           : overall.predictedAmount;
@@ -222,7 +261,7 @@ class FuzzySpendingPredictor {
       results.add(
         FuzzyForecastResult(
           predictedAmount: overall.predictedAmount,
-          confidenceScore: overall.confidenceScore,
+          confidenceScore: cappedConfidence,
           trendLabel: overall.trendLabel,
           volatilityLabel: overall.volatilityLabel,
           utilizationLabel: overall.utilizationLabel,
@@ -250,6 +289,7 @@ class FuzzySpendingPredictor {
     required double trendSlope,
     required double volatility,
     required double utilization,
+    required int historyMonths,
     double confidenceMultiplier = 1.0,
   }) {
     // 1. FUZZIFICATION
@@ -286,7 +326,7 @@ class FuzzySpendingPredictor {
       ),
       _FuzzyRule(
         strength: _min([trendMembership.stable, utilizationMembership.high]),
-        outputValue: 0.05,
+        outputValue: 0.06,
       ),
       _FuzzyRule(
         strength: _min([trendMembership.stable, utilizationMembership.low]),
@@ -307,10 +347,6 @@ class FuzzySpendingPredictor {
         strength: _min([trendMembership.decreasing, volatilityMembership.high]),
         outputValue: -0.05,
       ),
-      _FuzzyRule(
-        strength: _min([utilizationMembership.high, trendMembership.stable]),
-        outputValue: 0.08,
-      ),
     ];
 
     // 3. DEFUZZIFICATION (Weighted Centroid)
@@ -327,13 +363,23 @@ class FuzzySpendingPredictor {
       double.infinity,
     );
 
-    // 4. CONFIDENCE SCORE
-    final ruleClarity = (totalWeight / rules.length).clamp(0, 1);
-    final confidence = (ruleClarity * 100 * confidenceMultiplier).clamp(0, 100);
+    // 4. CONFIDENCE SCORE (data maturity x volatility stability x horizon)
+    final double dataMaturity = switch (historyMonths) {
+      1 => 0.45,
+      2 => 0.65,
+      3 => 0.78,
+      _ => 0.90,
+    };
+    final double stability = 1.0 - volatility.clamp(0.0, 0.6) * 0.45;
+    final double confidence =
+        (dataMaturity * stability * confidenceMultiplier * 100.0).clamp(
+          15.0,
+          95.0,
+        );
 
     return FuzzyForecastResult(
       predictedAmount: predictedAmount.toDouble(),
-      confidenceScore: confidence.toDouble(),
+      confidenceScore: confidence,
       trendLabel: trendMembership.dominantLabel,
       volatilityLabel: volatilityMembership.dominantLabel,
       utilizationLabel: utilizationMembership.dominantLabel,
@@ -342,30 +388,44 @@ class FuzzySpendingPredictor {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // MEMBERSHIP FUNCTIONS (triangular)
+  // MEMBERSHIP FUNCTIONS (open-ended shoulders + triangular)
   // ═══════════════════════════════════════════════════════════
   static _TrendMembership _fuzzifyTrend(double ratio) {
-    final decreasing = _triangular(ratio, -1.0, -0.5, 0.0);
+    final decreasing = _leftShoulder(ratio, -0.5, 0.0);
     final stable = _triangular(ratio, -0.15, 0.0, 0.15);
-    final increasing = _triangular(ratio, 0.0, 0.5, 1.0);
+    final increasing = _rightShoulder(ratio, 0.0, 0.5);
     return _TrendMembership(decreasing, stable, increasing);
   }
 
   static _VolatilityMembership _fuzzifyVolatility(double cv) {
-    final low = _triangular(cv, 0.0, 0.0, 0.25);
+    final low = _leftShoulder(cv, 0.0, 0.25);
     final medium = _triangular(cv, 0.10, 0.30, 0.50);
-    final high = _triangular(cv, 0.35, 0.6, 1.0);
+    final high = _rightShoulder(cv, 0.35, 0.6);
     return _VolatilityMembership(low, medium, high);
   }
 
   static _UtilizationMembership _fuzzifyUtilization(double ratio) {
-    final low = _triangular(ratio, 0.0, 0.0, 0.5);
+    final low = _leftShoulder(ratio, 0.0, 0.5);
     final moderate = _triangular(ratio, 0.3, 0.7, 1.0);
-    final high = _triangular(ratio, 0.8, 1.2, 1.6);
+    final high = _rightShoulder(ratio, 0.8, 1.2);
     return _UtilizationMembership(low, moderate, high);
   }
 
+  static double _leftShoulder(double x, double b, double c) {
+    if (x <= b) return 1.0;
+    if (x >= c) return 0.0;
+    return (c - x) / (c - b);
+  }
+
+  static double _rightShoulder(double x, double a, double b) {
+    if (x <= a) return 0.0;
+    if (x >= b) return 1.0;
+    return (x - a) / (b - a);
+  }
+
   static double _triangular(double x, double a, double b, double c) {
+    if (a == b && x <= b) return x < a ? 0.0 : 1.0;
+    if (b == c && x >= b) return x > c ? 0.0 : 1.0;
     if (x <= a || x >= c) return 0.0;
     if (x == b) return 1.0;
     if (x < b) return (x - a) / (b - a);
@@ -378,16 +438,28 @@ class FuzzySpendingPredictor {
   // ═══════════════════════════════════════════════════════════
   // AGGREGATION HELPERS
   // ═══════════════════════════════════════════════════════════
+  static bool _isCurrentMonthComplete(DateTime now) {
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
+    return now.day >= lastDayOfMonth;
+  }
+
   static List<double> _aggregateByMonth(
     List<TransactionModel> transactions,
     int monthsOfHistory,
+    DateTime now,
   ) {
     final Map<String, double> totals = {};
 
     for (final tx in transactions) {
       if (tx.type != TransactionType.expense) continue;
-      final key = '${tx.date.year}-${tx.date.month.toString().padLeft(2, '0')}';
+      final key = BudgetCalculator.monthKey(tx.date);
       totals[key] = (totals[key] ?? 0) + tx.amount;
+    }
+
+    final currentKey = BudgetCalculator.monthKey(now);
+    if (!_isCurrentMonthComplete(now) &&
+        totals.keys.any((k) => k != currentKey)) {
+      totals.remove(currentKey);
     }
 
     final sortedKeys = totals.keys.toList()..sort();
@@ -403,14 +475,21 @@ class FuzzySpendingPredictor {
     List<TransactionModel> transactions,
     int monthsOfHistory,
     String bucket,
+    DateTime now,
   ) {
     final Map<String, double> totals = {};
 
     for (final tx in transactions) {
       if (tx.type != TransactionType.expense) continue;
       if (tx.budgetCategory.name != bucket) continue;
-      final key = '${tx.date.year}-${tx.date.month.toString().padLeft(2, '0')}';
+      final key = BudgetCalculator.monthKey(tx.date);
       totals[key] = (totals[key] ?? 0) + tx.amount;
+    }
+
+    final currentKey = BudgetCalculator.monthKey(now);
+    if (!_isCurrentMonthComplete(now) &&
+        totals.keys.any((k) => k != currentKey)) {
+      totals.remove(currentKey);
     }
 
     final sortedKeys = totals.keys.toList()..sort();

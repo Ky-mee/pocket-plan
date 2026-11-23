@@ -139,7 +139,15 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     return StreamBuilder<List<TransactionModel>>(
                 stream: _db.transactionsStream(_userId),
                 builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
+                  if (snap.hasError) {
+                    return const EmptyStateWidget(
+                      emoji: '⚠️',
+                      title: 'Could not load transactions',
+                      subtitle: 'Please check your connection and try again.',
+                    );
+                  }
+                  if (snap.connectionState == ConnectionState.waiting &&
+                      !snap.hasData) {
                     return const Padding(
                       padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
                       child: TransactionShimmer(),
@@ -858,8 +866,24 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               color: colors.danger,
               onTap: () async {
                 Navigator.pop(ctx);
-                final snap = await _db.transactionsStream(_userId).first;
-                await ExportService.exportToPDF(snap, 0);
+                try {
+                  final snap = await _db.transactionsStream(_userId).first;
+                  final budget = await _db.budgetStream(_userId).first;
+                  await ExportService.exportToPDF(
+                    snap,
+                    budget?.monthlyAllowance ?? 0,
+                  );
+                } catch (_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Failed to export PDF report.'),
+                        backgroundColor: context.colors.danger,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
               },
             ),
             const SizedBox(height: 12),
@@ -870,8 +894,20 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               color: colors.success,
               onTap: () async {
                 Navigator.pop(ctx);
-                final snap = await _db.transactionsStream(_userId).first;
-                await ExportService.exportToCSV(snap);
+                try {
+                  final snap = await _db.transactionsStream(_userId).first;
+                  await ExportService.exportToCSV(snap);
+                } catch (_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Failed to export CSV file.'),
+                        backgroundColor: context.colors.danger,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
               },
             ),
             const SizedBox(height: 24),

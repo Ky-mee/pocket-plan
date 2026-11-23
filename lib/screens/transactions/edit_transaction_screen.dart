@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pocket_plan/core/utils/amount_input.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:pocket_plan/models/transaction_model.dart';
+import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/utils/amount_input.dart';
+import 'package:pocket_plan/models/transaction_model.dart';
 
 class EditTransactionScreen extends StatefulWidget {
   final TransactionModel transaction;
@@ -18,6 +17,7 @@ class EditTransactionScreen extends StatefulWidget {
 class _EditTransactionScreenState extends State<EditTransactionScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+  final DatabaseService _db = DatabaseService();
   late TextEditingController _amountController;
   late TextEditingController _descriptionController;
 
@@ -30,8 +30,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
 
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
-
-  String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   void initState() {
@@ -82,22 +80,25 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     try {
       final oldTx = widget.transaction;
       final newAmount = double.parse(_amountController.text);
+      final trimmedDesc = _descriptionController.text.trim();
+      final updatedTx = TransactionModel(
+        id: oldTx.id,
+        userId: oldTx.userId,
+        type: _type,
+        budgetCategory: _type == TransactionType.income
+            ? BudgetCategory.savings
+            : _budgetCategory,
+        amount: newAmount,
+        category: _selectedCategory,
+        subcategory: oldTx.subcategory,
+        description: trimmedDesc.isEmpty && _type == TransactionType.income
+            ? _selectedCategory
+            : trimmedDesc,
+        date: _selectedDate,
+        createdAt: oldTx.createdAt,
+      );
 
-      await _reverseOldImpact(oldTx);
-
-      await FirebaseFirestore.instance
-          .collection('transactions')
-          .doc(oldTx.id)
-          .update({
-            'type': _type == TransactionType.expense ? 'expense' : 'income',
-            'budgetCategory': _budgetCategory.name,
-            'amount': newAmount,
-            'category': _selectedCategory,
-            'description': _descriptionController.text.trim(),
-            'date': Timestamp.fromDate(_selectedDate),
-          });
-
-      await _applyNewImpact(newAmount);
+      await _db.updateTransaction(oldTx, updatedTx);
 
       if (mounted) {
         final colors = context.colors;
@@ -130,36 +131,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Future<void> _reverseOldImpact(TransactionModel tx) async {
-    final reverseAmount = tx.type == TransactionType.expense
-        ? -tx.amount
-        : tx.amount;
-    final field = switch (tx.budgetCategory) {
-      BudgetCategory.commitment => 'commitments.spent',
-      BudgetCategory.spending => 'spendings.spent',
-      BudgetCategory.savings => 'savings.spent',
-    };
-    await FirebaseFirestore.instance.collection('budgets').doc(_userId).update({
-      field: FieldValue.increment(reverseAmount),
-      'updatedAt': Timestamp.now(),
-    });
-  }
-
-  Future<void> _applyNewImpact(double newAmount) async {
-    final applyAmount = _type == TransactionType.expense
-        ? newAmount
-        : -newAmount;
-    final field = switch (_budgetCategory) {
-      BudgetCategory.commitment => 'commitments.spent',
-      BudgetCategory.spending => 'spendings.spent',
-      BudgetCategory.savings => 'savings.spent',
-    };
-    await FirebaseFirestore.instance.collection('budgets').doc(_userId).update({
-      field: FieldValue.increment(applyAmount),
-      'updatedAt': Timestamp.now(),
-    });
   }
 
   Future<void> _pickDate() async {
@@ -196,51 +167,56 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isIncome = _type == TransactionType.income;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter): _submit,
         const SingleActivator(LogicalKeyboardKey.numpadEnter): _submit,
       },
       child: Scaffold(
-      backgroundColor: colors.background,
-      body: SlideTransition(
-        position: _slideAnimation,
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 20),
-                        _buildTypeToggle(),
-                        const SizedBox(height: 24),
-                        _buildAmountField(),
-                        const SizedBox(height: 20),
-                        _buildBucketSelector(),
-                        const SizedBox(height: 20),
-                        _buildCategorySelector(),
-                        const SizedBox(height: 20),
-                        _buildDescriptionField(),
-                        const SizedBox(height: 20),
-                        _buildDatePicker(),
-                        const SizedBox(height: 32),
-                        _buildSaveButton(),
-                        const SizedBox(height: 32),
-                      ],
+        backgroundColor: colors.background,
+        body: SlideTransition(
+          position: _slideAnimation,
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          _buildTypeToggle(),
+                          const SizedBox(height: 24),
+                          _buildAmountField(),
+                          const SizedBox(height: 20),
+                          if (isIncome)
+                            _buildIncomeSourceSelector()
+                          else ...[
+                            _buildBucketSelector(),
+                            const SizedBox(height: 20),
+                            _buildCategorySelector(),
+                          ],
+                          const SizedBox(height: 20),
+                          _buildDescriptionField(),
+                          const SizedBox(height: 20),
+                          _buildDatePicker(),
+                          const SizedBox(height: 32),
+                          _buildSaveButton(),
+                          const SizedBox(height: 32),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -322,10 +298,18 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
           _type = type;
           if (type == TransactionType.income) {
             _budgetCategory = BudgetCategory.savings;
-            _selectedCategory = 'Bank Savings';
+            _selectedCategory =
+                TransactionCategories.incomeSources.contains(
+                  widget.transaction.category,
+                )
+                ? widget.transaction.category
+                : TransactionCategories.incomeSources.first;
           } else {
             _budgetCategory = BudgetCategory.spending;
-            _selectedCategory = 'Food & Drinks';
+            _selectedCategory =
+                _currentCategories.contains(widget.transaction.category)
+                ? widget.transaction.category
+                : _currentCategories.first;
           }
         }),
         child: AnimatedContainer(
@@ -426,6 +410,55 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     );
   }
 
+  Widget _buildIncomeSourceSelector() {
+    final colors = context.colors;
+    final sources =
+        TransactionCategories.incomeSources.contains(_selectedCategory)
+        ? TransactionCategories.incomeSources
+        : [_selectedCategory, ...TransactionCategories.incomeSources];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Income Source',
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: colors.success.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colors.success.withOpacity(0.3)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedCategory,
+              isExpanded: true,
+              dropdownColor: colors.surface,
+              style: TextStyle(color: colors.textPrimary, fontSize: 14),
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: colors.success,
+              ),
+              items: sources
+                  .map(
+                    (source) =>
+                        DropdownMenuItem(value: source, child: Text(source)),
+                  )
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedCategory = val!),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBucketSelector() {
     final colors = context.colors;
     return Column(
@@ -492,6 +525,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
 
   Widget _buildCategorySelector() {
     final colors = context.colors;
+    final categories = _currentCategories.contains(_selectedCategory)
+        ? _currentCategories
+        : [_selectedCategory, ..._currentCategories];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -513,9 +549,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: _currentCategories.contains(_selectedCategory)
-                  ? _selectedCategory
-                  : _currentCategories.first,
+              value: _selectedCategory,
               isExpanded: true,
               dropdownColor: colors.surface,
               style: TextStyle(color: colors.textPrimary, fontSize: 14),
@@ -523,7 +557,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
                 Icons.keyboard_arrow_down_rounded,
                 color: colors.textSecondary,
               ),
-              items: _currentCategories
+              items: categories
                   .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
                   .toList(),
               onChanged: (val) => setState(() => _selectedCategory = val!),

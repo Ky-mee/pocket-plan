@@ -31,9 +31,11 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen>
   final List<String> _filters = [
     'All',
     'Restaurant',
-    'Cafe',
-    'Fast Food',
     'Food Court',
+    'Fast Food',
+    'Cafe',
+    'Bakery',
+    'Grocery',
   ];
 
   // Increased to 5km for better Malaysian coverage
@@ -104,6 +106,7 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen>
     if (!mounted) return;
     setState(() {
       _isLoadingPlaces = true;
+      _errorMessage = '';
       _places = [];
     });
 
@@ -208,10 +211,12 @@ out center;
           });
         }
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoadingPlaces = false;
+          _errorMessage =
+              'Could not load nearby places. Check your connection and try again.';
         });
       }
     }
@@ -271,12 +276,16 @@ out center;
       switch (_selectedFilter) {
         case 'Restaurant':
           return p.amenity == 'restaurant';
-        case 'Cafe':
-          return p.amenity == 'cafe';
+        case 'Food Court':
+          return p.amenity == 'food_court' || p.amenity == 'canteen';
         case 'Fast Food':
           return p.amenity == 'fast_food';
-        case 'Food Court':
-          return p.amenity == 'food_court';
+        case 'Cafe':
+          return p.amenity == 'cafe';
+        case 'Bakery':
+          return p.amenity == 'bakery';
+        case 'Grocery':
+          return p.amenity == 'supermarket' || p.amenity == 'convenience';
         default:
           return true;
       }
@@ -495,6 +504,13 @@ out center;
                 }),
               ],
             ),
+            SimpleAttributionWidget(
+              source: Text(
+                'OpenStreetMap contributors',
+                style: TextStyle(color: colors.textSecondary, fontSize: 10),
+              ),
+              backgroundColor: colors.surface.withOpacity(0.85),
+            ),
           ],
         ),
       ),
@@ -503,19 +519,31 @@ out center;
 
   Widget _buildStatsBar() {
     final colors = context.colors;
+    final hasFetchError = _errorMessage.isNotEmpty && _places.isEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: Row(
         children: [
-          Icon(Icons.place_outlined, color: colors.success, size: 16),
+          Icon(
+            hasFetchError ? Icons.error_outline : Icons.place_outlined,
+            color: hasFetchError ? colors.danger : colors.success,
+            size: 16,
+          ),
           const SizedBox(width: 6),
-          Text(
-            _isLoadingPlaces
-                ? 'Searching nearby places...'
-                : _places.isEmpty
-                ? 'Limited OSM data in this area — try refreshing'
-                : '${_filteredPlaces.length} places found within ${_radius ~/ 1000}km',
-            style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          Expanded(
+            child: Text(
+              _isLoadingPlaces
+                  ? 'Searching nearby places...'
+                  : hasFetchError
+                  ? _errorMessage
+                  : _places.isEmpty
+                  ? 'Limited OSM data in this area — try refreshing'
+                  : '${_filteredPlaces.length} places found within ${_radius ~/ 1000}km',
+              style: TextStyle(
+                color: hasFetchError ? colors.danger : colors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
           ),
         ],
       ),
@@ -586,6 +614,52 @@ out center;
                 style: TextStyle(color: colors.textTertiary, fontSize: 11),
               ),
             ],
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage.isNotEmpty && _places.isEmpty) {
+      return Expanded(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.wifi_off_rounded, size: 48, color: colors.danger),
+                const SizedBox(height: 12),
+                Text(
+                  _errorMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: () => _currentPosition != null
+                      ? _fetchNearbyPlaces(_currentPosition!)
+                      : _initLocation(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.accent.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.accent.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      'Retry',
+                      style: TextStyle(
+                        color: colors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );

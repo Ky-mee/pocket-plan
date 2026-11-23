@@ -12,7 +12,6 @@ ThemeData buildLightTheme([Color? accent]) {
     useMaterial3: true,
     brightness: Brightness.light,
     scaffoldBackgroundColor: palette.background,
-    fontFamily: 'Inter', // remove/adjust if you're not using a custom font
     colorScheme: ColorScheme.light(
       primary: palette.accent,
       secondary: palette.info,
@@ -38,14 +37,14 @@ ThemeData buildLightTheme([Color? accent]) {
     ),
     iconTheme: IconThemeData(color: palette.textPrimary),
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.resolveWith(
-        (states) => states.contains(MaterialState.selected)
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
             ? palette.accent
             : palette.textTertiary,
       ),
-      trackColor: MaterialStateProperty.resolveWith(
-        (states) => states.contains(MaterialState.selected)
-            ? palette.accent.withOpacity(0.3)
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? palette.accent.withValues(alpha: 0.3)
             : palette.border,
       ),
     ),

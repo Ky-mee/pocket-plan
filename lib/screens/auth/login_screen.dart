@@ -367,8 +367,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ),
           TextButton(
             onPressed: () async {
-              if (emailCtrl.text.isNotEmpty) {
-                await _authService.resetPassword(emailCtrl.text.trim());
+              final email = emailCtrl.text.trim();
+              if (email.isEmpty || !email.contains('@')) {
+                _showError('Please enter a valid email address.');
+                return;
+              }
+              try {
+                await _authService.resetPassword(email);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -380,6 +385,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                  );
+                }
+              } catch (_) {
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  _showError(
+                    'Could not send reset email. Please check the address.',
                   );
                 }
               }

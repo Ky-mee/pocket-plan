@@ -92,11 +92,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.dispose();
   }
 
-  Future<void> _completeOnboarding() async {
+  Future<void> _completeOnboarding({
+    String targetRoute = '/register',
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_complete', true);
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/register');
+      Navigator.of(context).pushReplacementNamed(targetRoute);
     }
   }
 
@@ -278,15 +280,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     if (_currentPage == pages.length - 1) ...[
                       const SizedBox(height: 16),
                       GestureDetector(
-                        onTap: () {
-                          _completeOnboarding().then((_) {
-                            if (mounted) {
-                              Navigator.of(
-                                context,
-                              ).pushReplacementNamed('/login');
-                            }
-                          });
-                        },
+                        onTap: () =>
+                            _completeOnboarding(targetRoute: '/login'),
                         child: RichText(
                           text: TextSpan(
                             text: 'Already have an account? ',

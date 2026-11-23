@@ -8,6 +8,7 @@ import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/core/services/budget_reset_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
+import 'package:pocket_plan/widgets/shimmer_widgets.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -48,7 +49,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Future<void> _checkBudgetReset() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await BudgetResetService().checkAndResetIfNewMonth(user.uid);
+      final prefs = await _db.getPreferences(user.uid);
+      final carryForward = prefs['carryForwardEnabled'] ?? true;
+      await BudgetResetService().checkAndResetIfNewMonth(
+        user.uid,
+        carryForwardEnabled: carryForward,
+      );
     }
   }
 
@@ -71,6 +77,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: StreamBuilder<BudgetModel?>(
               stream: _db.budgetStream(_userId),
               builder: (context, budgetSnap) {
+                if (budgetSnap.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Unable to load your budget. Please check your connection.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colors.textSecondary),
+                      ),
+                    ),
+                  );
+                }
+                if (budgetSnap.connectionState == ConnectionState.waiting &&
+                    !budgetSnap.hasData) {
+                  return isDesktopLayout(context)
+                      ? Center(
+                          child: CircularProgressIndicator(color: colors.accent),
+                        )
+                      : const HomeShimmer();
+                }
                 final budget = budgetSnap.data;
                 return StreamBuilder<List<TransactionModel>>(
                   stream: _db.transactionsStream(_userId),
@@ -86,11 +112,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         SliverToBoxAdapter(
                           child: Column(
                             children: [
-                              _buildTopBar(),
+                              _buildTopBar(budget),
                               _buildBalanceCard(budget),
                               _buildBudgetRing(budget),
                               _buildQuickActions(),
-                              _buildRecentTransactions(transactions),
+                              if (txSnap.hasError)
+                                Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Text(
+                                    'Unable to load recent transactions.',
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                                )
+                              else
+                                _buildRecentTransactions(transactions),
                               const SizedBox(height: 100),
                             ],
                           ),
@@ -120,7 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     return Column(
       children: [
-        _buildTopBar(),
+        _buildTopBar(budget),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,7 +181,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ─────────────────────────────────────────
   // TOP BAR
   // ─────────────────────────────────────────
-  Widget _buildTopBar() {
+  bool _hasBudgetAlerts(BudgetModel? budget) {
+    if (budget == null) return false;
+    return budget.isAnyExceeded ||
+        budget.commitments.percentageUsed >= 80 ||
+        budget.spendings.percentageUsed >= 80;
+  }
+
+  Widget _buildTopBar(BudgetModel? budget) {
     final colors = context.colors;
     final user = FirebaseAuth.instance.currentUser;
     final name = user?.displayName?.split(' ').first ?? 'there';
@@ -154,6 +198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         : hour < 17
         ? 'Good afternoon'
         : 'Good evening';
+    final hasAlert = _hasBudgetAlerts(budget);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -180,17 +225,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Row(
             children: [
               // Notification bell
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.notifications_outlined,
-                  color: colors.textPrimary,
-                  size: 20,
+              GestureDetector(
+                onTap: () => _showBudgetAlertsSheet(budget),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.notifications_outlined,
+                        color: colors.textPrimary,
+                        size: 20,
+                      ),
+                    ),
+                    if (hasAlert)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: colors.danger,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(width: 10),
@@ -903,6 +969,160 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ];
     final now = DateTime.now();
     return '${months[now.month - 1]} ${now.year}';
+  }
+
+  void _showBudgetAlertsSheet(BudgetModel? budget) {
+    final colors = context.colors;
+    final alerts = <(String, String, Color)>[];
+    if (budget != null) {
+      void checkBucket(String name, BucketData b) {
+        if (b.isExceeded) {
+          alerts.add((
+            '$name Budget Exceeded',
+            'Spent RM ${b.spent.toStringAsFixed(2)} of RM ${b.limit.toStringAsFixed(2)}.',
+            colors.danger,
+          ));
+        } else if (b.percentageUsed >= 80) {
+          alerts.add((
+            '$name at ${b.percentageUsed.toStringAsFixed(0)}%',
+            'RM ${b.remaining.toStringAsFixed(2)} remaining this month.',
+            colors.warning,
+          ));
+        }
+      }
+
+      checkBucket('Commitments', budget.commitments);
+      checkBucket('Spending', budget.spendings);
+      if (budget.savings.isExceeded) {
+        alerts.add((
+          'Savings Target Exceeded',
+          'Recorded RM ${budget.savings.spent.toStringAsFixed(2)} vs RM ${budget.savings.limit.toStringAsFixed(2)}.',
+          colors.warning,
+        ));
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Budget Alerts',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context).pushNamed('/settings');
+                  },
+                  child: Text(
+                    'Preferences',
+                    style: TextStyle(color: colors.accent),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (alerts.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: colors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.success.withOpacity(0.25)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: colors.success,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'All clear! Your spending is on track this month.',
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...alerts.map(
+                (a) => Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: a.$3.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: a.$3.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: a.$3, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              a.$1,
+                              style: TextStyle(
+                                color: a.$3,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              a.$2,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
   }
 
   String _formatDate(DateTime date) {

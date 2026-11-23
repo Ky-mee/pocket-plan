@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/providers/theme_provider.dart';
 import 'package:pocket_plan/providers/accent_color_provider.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/utils/amount_input.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -231,6 +232,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [AmountInputFormatter()],
           style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
             prefixText: 'RM ',
@@ -259,9 +261,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             onPressed: () async {
               final val = double.tryParse(ctrl.text);
               if (val != null && val > 0) {
-                await _db.updateAllowance(_userId, val);
-                await _loadData();
-                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await _db.updateAllowance(_userId, val);
+                  await _loadData();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (_) {
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Failed to update allowance.'),
+                        backgroundColor: context.colors.danger,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
               }
             },
             child: Text(
@@ -350,20 +365,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     onTap: () async {
                       final email = FirebaseAuth.instance.currentUser?.email;
                       if (email != null) {
-                        await _authService.resetPassword(email);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text(
-                                'Reset link sent to your email!',
+                        try {
+                          await _authService.resetPassword(email);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Reset link sent to your email!',
+                                ),
+                                backgroundColor: colors.success,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                              backgroundColor: colors.success,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            );
+                          }
+                        } catch (_) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Could not send reset email. Try again later.',
+                                ),
+                                backgroundColor: colors.danger,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          }
                         }
                       }
                     },

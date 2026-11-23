@@ -73,14 +73,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     return StreamBuilder<BudgetModel?>(
                       stream: _db.budgetStream(_userId),
                       builder: (context, budgetSnap) {
+                        if (txSnap.hasError || budgetSnap.hasError) {
+                          return _buildEmptyState(
+                            'Unable to load analytics',
+                            'Please check your connection and try again.',
+                          );
+                        }
                         final budget = budgetSnap.data;
-                        final currentLimit = budget?.monthlyAllowance ?? 0.0;
                         return TabBarView(
                           controller: _tabController,
                           children: [
                             _buildOverviewTab(transactions),
                             _buildCategoryTab(transactions),
-                            _buildPredictionTab(transactions, currentLimit),
+                            _buildPredictionTab(transactions, budget),
                           ],
                         );
                       },
@@ -340,15 +345,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           const SizedBox(height: 20),
           SizedBox(
             height: 180,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY:
-                    barData
-                        .map((d) => (d['expense'] as double))
-                        .fold(0.0, (a, b) => a > b ? a : b) *
-                    1.3,
-                barTouchData: BarTouchData(enabled: false),
+            child: Builder(
+              builder: (context) {
+                final maxBar = barData
+                    .map((d) => (d['expense'] as double))
+                    .fold(0.0, (a, b) => a > b ? a : b);
+                return BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    maxY: maxBar > 0 ? maxBar * 1.3 : 100.0,
+                    barTouchData: BarTouchData(enabled: false),
                 titlesData: FlTitlesData(
                   leftTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
@@ -388,22 +394,24 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                       FlLine(color: context.colors.border, strokeWidth: 1),
                 ),
                 borderData: FlBorderData(show: false),
-                barGroups: barData.asMap().entries.map((e) {
-                  final idx = e.key;
-                  final data = e.value;
-                  return BarChartGroupData(
-                    x: idx,
-                    barRods: [
-                      BarChartRodData(
-                        toY: data['expense'] as double,
-                        color: context.colors.accent,
-                        width: 20,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
+                    barGroups: barData.asMap().entries.map((e) {
+                      final idx = e.key;
+                      final data = e.value;
+                      return BarChartGroupData(
+                        x: idx,
+                        barRods: [
+                          BarChartRodData(
+                            toY: data['expense'] as double,
+                            color: context.colors.accent,
+                            width: 20,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -416,8 +424,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     final thisMonth = transactions.where(
       (t) => t.date.month == now.month && t.date.year == now.year,
     );
+    final lastMonthDate = DateTime(now.year, now.month - 1, 1);
     final lastMonth = transactions.where(
-      (t) => t.date.month == now.month - 1 && t.date.year == now.year,
+      (t) =>
+          t.date.month == lastMonthDate.month &&
+          t.date.year == lastMonthDate.year,
     );
 
     final thisTotal = thisMonth
@@ -745,16 +756,23 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   // PREDICTION TAB (Fuzzy Logic)
   Widget _buildPredictionTab(
     List<TransactionModel> transactions,
-    double currentLimit,
+    BudgetModel? budget,
   ) {
+    final currentLimit = budget?.monthlyAllowance ?? 0.0;
     final nextMonth = FuzzySpendingPredictor.predictNextMonth(
       transactions: transactions,
       currentMonthLimit: currentLimit,
+      commitmentLimit: budget?.commitments.limit,
+      spendingLimit: budget?.spendings.limit,
+      savingsLimit: budget?.savings.limit,
     );
 
     final sixMonths = FuzzySpendingPredictor.predictSixMonths(
       transactions: transactions,
       currentMonthLimit: currentLimit,
+      commitmentLimit: budget?.commitments.limit,
+      spendingLimit: budget?.spendings.limit,
+      savingsLimit: budget?.savings.limit,
     );
 
     final hasData = transactions.any((t) => t.type == TransactionType.expense);
@@ -772,7 +790,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   _buildNextMonthCard(nextMonth),
                   const SizedBox(height: 20),
                   if (hasData) ...[
-                    _buildCategoryBreakdown(nextMonth, currentLimit),
+                    _buildCategoryBreakdown(
+                      nextMonth,
+                      currentLimit,
+                      budget: budget,
+                    ),
                     const SizedBox(height: 20),
                   ],
                   _buildFuzzyExplainerCard(nextMonth),
@@ -824,7 +846,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
 
           // ── Category breakdown ──
           if (hasData) ...[
-            _buildCategoryBreakdown(nextMonth, currentLimit),
+            _buildCategoryBreakdown(nextMonth, currentLimit, budget: budget),
             const SizedBox(height: 20),
           ],
 
@@ -973,11 +995,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   // ═══════════════════════════════════════════════════════════
   Widget _buildCategoryBreakdown(
     FuzzyForecastResult result,
-    double currentLimit,
-  ) {
-    final commitmentLimit = currentLimit * 0.5;
-    final spendingLimit = currentLimit * 0.3;
-    final savingsLimit = currentLimit * 0.2;
+    double currentLimit, {
+    BudgetModel? budget,
+  }) {
+    final commitmentLimit = budget?.commitments.limit ?? currentLimit * 0.5;
+    final spendingLimit = budget?.spendings.limit ?? currentLimit * 0.3;
+    final savingsLimit = budget?.savings.limit ?? currentLimit * 0.2;
+    String pctLabel(double limit, String fallback) {
+      if (currentLimit <= 0) return fallback;
+      return '${(limit / currentLimit * 100).toStringAsFixed(0)}% of budget';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -999,7 +1026,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         _categoryForecastCard(
           icon: Icons.home_outlined,
           label: 'Commitments',
-          sublabel: '50% of budget',
+          sublabel: pctLabel(commitmentLimit, '50% of budget'),
           predicted: result.predictedCommitments,
           limit: commitmentLimit,
           color: context.colors.accent,
@@ -1008,7 +1035,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         _categoryForecastCard(
           icon: Icons.shopping_bag_outlined,
           label: 'Spending',
-          sublabel: '30% of budget',
+          sublabel: pctLabel(spendingLimit, '30% of budget'),
           predicted: result.predictedSpending,
           limit: spendingLimit,
           color: context.colors.warning,
@@ -1017,7 +1044,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         _categoryForecastCard(
           icon: Icons.savings_outlined,
           label: 'Savings',
-          sublabel: '20% of budget',
+          sublabel: pctLabel(savingsLimit, '20% of budget'),
           predicted: result.predictedSavings,
           limit: savingsLimit,
           color: context.colors.success,
@@ -1164,6 +1191,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   }
 
   Widget _buildSixMonthChart(List<FuzzyForecastResult> results) {
+    final maxPredicted = results.isEmpty
+        ? 0.0
+        : results
+              .map((r) => r.predictedAmount)
+              .reduce((a, b) => a > b ? a : b);
     return Container(
       height: 180,
       padding: const EdgeInsets.all(16),
@@ -1174,11 +1206,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY:
-              (results
-                  .map((r) => r.predictedAmount)
-                  .reduce((a, b) => a > b ? a : b)) *
-              1.3,
+          maxY: maxPredicted > 0 ? maxPredicted * 1.3 : 100.0,
           titlesData: FlTitlesData(
             leftTitles: const AxisTitles(
               sideTitles: SideTitles(showTitles: false),
