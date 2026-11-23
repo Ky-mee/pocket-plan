@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/core/services/notification_service.dart';
 import 'package:pocket_plan/core/utils/budget_calculator.dart';
+import 'package:pocket_plan/core/utils/budget_cycle.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 
 class BudgetResetService {
@@ -13,7 +14,7 @@ class BudgetResetService {
     String userId, {
     bool carryForwardEnabled = true,
   }) async {
-    final currentMonth = BudgetCalculator.monthKey(DateTime.now());
+    final now = DateTime.now();
     final docRef = _firestore.collection('budgets').doc(userId);
 
     final oldBudget = await _firestore.runTransaction<BudgetModel?>((
@@ -23,11 +24,15 @@ class BudgetResetService {
       if (!doc.exists) return null;
 
       final budget = BudgetModel.fromFirestore(doc);
-      if (budget.month == currentMonth) return null;
+      final currentCycle = BudgetCycle.forDate(
+        now,
+        startDay: budget.budgetStartDay,
+      ).key;
+      if (budget.month == currentCycle) return null;
 
       final nextBudget = BudgetCalculator.resetForNewMonth(
         budget,
-        newMonth: currentMonth,
+        newMonth: currentCycle,
         carryForwardEnabled: carryForwardEnabled,
       );
       txn.set(docRef, nextBudget.toFirestore());
@@ -36,11 +41,16 @@ class BudgetResetService {
 
     if (oldBudget == null) return;
 
+    final currentCycle = BudgetCycle.forDate(
+      now,
+      startDay: oldBudget.budgetStartDay,
+    ).key;
+
     await _archiveLastMonth(userId, oldBudget, oldBudget.month);
 
     await NotificationService().showLocalNotification(
       id: 10,
-      title: '🔄 Budget Reset for ${_monthName(currentMonth)}',
+      title: '🔄 Budget Reset for ${_monthName(currentCycle)}',
       body: carryForwardEnabled
           ? 'Your budget has been reset. Unused balance has been carried forward to this month.'
           : 'Your budget has been reset for the new month. Good luck!',
@@ -134,7 +144,7 @@ class BudgetResetService {
     String userId, {
     bool carryForwardEnabled = true,
   }) async {
-    final currentMonth = BudgetCalculator.monthKey(DateTime.now());
+    final now = DateTime.now();
     final docRef = _firestore.collection('budgets').doc(userId);
 
     final oldBudget = await _firestore.runTransaction<BudgetModel?>((
@@ -144,9 +154,13 @@ class BudgetResetService {
       if (!doc.exists) return null;
 
       final budget = BudgetModel.fromFirestore(doc);
+      final currentCycle = BudgetCycle.forDate(
+        now,
+        startDay: budget.budgetStartDay,
+      ).key;
       final nextBudget = BudgetCalculator.resetForNewMonth(
         budget,
-        newMonth: currentMonth,
+        newMonth: currentCycle,
         carryForwardEnabled: carryForwardEnabled,
       );
       txn.set(docRef, nextBudget.toFirestore());

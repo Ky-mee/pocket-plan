@@ -36,6 +36,18 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid;
     }
 
+    // Community cheap-dish tips shared on Food Nearby.
+    match /dish_tips/{tipId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+    }
+
     // Everything else is denied.
     match /{document=**} {
       allow read, write: if false;

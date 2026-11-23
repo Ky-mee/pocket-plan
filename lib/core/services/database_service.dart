@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pocket_plan/core/services/notification_service.dart';
 import 'package:pocket_plan/core/utils/budget_calculator.dart';
+import 'package:pocket_plan/core/utils/budget_cycle.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/models/user_model.dart';
@@ -91,17 +92,23 @@ class DatabaseService {
   }
 
   /// Deletes all Firestore records belonging to [uid] (transactions,
-  /// budget_history, preferences, budget, and user profile).
+  /// budget_history, recurring_items, ai_chats, preferences, budget, and user profile).
   Future<void> deleteAllUserData(String uid) async {
     final txSnap = await _transactions.where('userId', isEqualTo: uid).get();
     final historySnap = await _users
         .doc(uid)
         .collection('budget_history')
         .get();
+    final recurringSnap = await _users
+        .doc(uid)
+        .collection('recurring_items')
+        .get();
 
     final refsToDelete = <DocumentReference>[
       ...txSnap.docs.map((d) => d.reference),
       ...historySnap.docs.map((d) => d.reference),
+      ...recurringSnap.docs.map((d) => d.reference),
+      _users.doc(uid).collection('ai_chats').doc('latest'),
       _users.doc(uid).collection('preferences').doc('settings'),
       _budgets.doc(uid),
       _users.doc(uid),
@@ -320,6 +327,32 @@ class DatabaseService {
       '$bucketField.items': items,
       'updatedAt': Timestamp.now(),
     });
+  }
+
+  /// Updates the payday / budget cycle start day (`1..28`) and aligns the
+  /// active budget's cycle key so changing start day does not trigger a false reset.
+  Future<void> updateBudgetStartDay(String userId, int startDay) async {
+    final safeDay = BudgetCycle.clampStartDay(startDay);
+    final currentCycleKey = BudgetCycle.forDate(
+      DateTime.now(),
+      startDay: safeDay,
+    ).key;
+
+    await _db.runTransaction((txn) async {
+      final budgetRef = _budgets.doc(userId);
+      final budgetDoc = await txn.get(budgetRef);
+      if (!budgetDoc.exists) return;
+
+      final existing = BudgetModel.fromFirestore(budgetDoc);
+      final updated = existing.copyWith(
+        budgetStartDay: safeDay,
+        month: currentCycleKey,
+        updatedAt: DateTime.now(),
+      );
+      txn.set(budgetRef, updated.toFirestore());
+    });
+
+    await savePreferences(userId, {'budgetStartDay': safeDay});
   }
 
   // ─────────────────────────────────────────

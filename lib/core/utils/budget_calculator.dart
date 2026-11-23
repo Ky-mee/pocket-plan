@@ -1,22 +1,33 @@
+import 'package:pocket_plan/core/utils/budget_cycle.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 
 /// Pure, side-effect-free calculations for monthly budgets and transactions.
 class BudgetCalculator {
-  /// Formats [date] as `"yyyy-MM"`, independent of locale settings.
-  static String monthKey(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}';
+  /// Formats [date] as `"yyyy-MM"` according to [startDay], independent of locale settings.
+  static String monthKey(DateTime date, {int startDay = 1}) =>
+      BudgetCycle.forDate(date, startDay: startDay).key;
 
-  /// True when [date] falls inside [budgetMonth] (`"yyyy-MM"`).
-  static bool isInBudgetMonth(DateTime date, String budgetMonth) =>
-      monthKey(date) == budgetMonth;
+  /// True when [date] falls inside [budgetMonth] (`"yyyy-MM"`) for [startDay].
+  static bool isInBudgetMonth(
+    DateTime date,
+    String budgetMonth, {
+    int startDay = 1,
+  }) =>
+      BudgetCycle.forDate(date, startDay: startDay).key == budgetMonth;
 
   /// Returns a new [BudgetModel] reflecting an added [tx].
   ///
-  /// Transactions outside [budget.month] leave the current month's budget
-  /// unchanged so backfilling past months never corrupts active limits/spent.
+  /// Transactions outside [budget.month] leave the current cycle's budget
+  /// unchanged so backfilling past cycles never corrupts active limits/spent.
   static BudgetModel applyTransaction(BudgetModel budget, TransactionModel tx) {
-    if (!isInBudgetMonth(tx.date, budget.month)) return budget;
+    if (!isInBudgetMonth(
+      tx.date,
+      budget.month,
+      startDay: budget.budgetStartDay,
+    )) {
+      return budget;
+    }
 
     if (tx.type == TransactionType.expense) {
       return _updateBucketSpent(budget, tx.budgetCategory, tx.amount);
@@ -44,7 +55,9 @@ class BudgetCalculator {
     BudgetModel budget,
     TransactionModel tx,
   ) {
-    if (!isInBudgetMonth(tx.date, budget.month)) return budget;
+    if (!isInBudgetMonth(tx.date, budget.month, startDay: budget.budgetStartDay)) {
+      return budget;
+    }
 
     if (tx.type == TransactionType.expense) {
       return _updateBucketSpent(budget, tx.budgetCategory, -tx.amount);

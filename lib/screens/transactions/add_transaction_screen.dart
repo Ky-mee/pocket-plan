@@ -53,7 +53,38 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen>
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final arg = ModalRoute.of(context)?.settings.arguments;
-      if (arg == 'income') setState(() => _type = TransactionType.income);
+      if (arg == 'income') {
+        setState(() => _type = TransactionType.income);
+      } else if (arg is TransactionPrefill) {
+        setState(() {
+          _type = arg.type;
+          if (arg.budgetCategory != null) {
+            _budgetCategory = arg.budgetCategory!;
+          }
+          if (arg.category != null) {
+            if (_type == TransactionType.income &&
+                _incomeSources.contains(arg.category)) {
+              _selectedIncomeSource = arg.category!;
+            } else {
+              final bucketCategories =
+                  TransactionCategories.categories[_budgetCategory] ?? const [];
+              if (bucketCategories.contains(arg.category)) {
+                _selectedCategory = arg.category!;
+              } else if (bucketCategories.isNotEmpty) {
+                _selectedCategory = bucketCategories.first;
+              }
+            }
+          }
+          if (arg.amount != null && arg.amount! > 0) {
+            final cents = (arg.amount! * 100).round();
+            _amountCents = cents;
+            _amountController.text = (cents / 100.0).toStringAsFixed(2);
+          }
+          if (arg.description != null && arg.description!.isNotEmpty) {
+            _descriptionController.text = arg.description!;
+          }
+        });
+      }
     });
 
     if (_userId.isNotEmpty) {

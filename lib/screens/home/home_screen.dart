@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:pocket_plan/core/services/budget_reset_service.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
+import 'package:pocket_plan/core/services/recurring_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/utils/budget_cycle.dart';
 import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
@@ -66,6 +68,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         user.uid,
         carryForwardEnabled: carryForward,
       );
+      try {
+        final posted = await RecurringService().processDueRecurring(user.uid);
+        if (posted > 0 && mounted) {
+          final colors = context.colors;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Auto-logged $posted recurring item${posted == 1 ? '' : 's'} for this cycle.',
+              ),
+              backgroundColor: colors.success,
+            ),
+          );
+        }
+      } catch (_) {
+        // Non-blocking: recurring auto-sync also runs from RecurringScreen.
+      }
     }
   }
 
@@ -316,6 +334,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final remaining = allowance - spent;
     final progress = allowance > 0 ? (spent / allowance).clamp(0.0, 1.0) : 0.0;
 
+    final cycle = BudgetCycle.forDate(
+      DateTime.now(),
+      startDay: budget?.budgetStartDay ?? 1,
+    );
+    final daysLeft = cycle.daysRemaining(DateTime.now());
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       padding: const EdgeInsets.all(24),
@@ -358,7 +381,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  _getCurrentMonth(),
+                  cycle.formatLabel(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
@@ -404,7 +427,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 style: const TextStyle(color: Colors.white60, fontSize: 12),
               ),
               Text(
-                '${(progress * 100).toStringAsFixed(0)}% used',
+                '${(progress * 100).toStringAsFixed(0)}% used · ${daysLeft}d left',
                 style: TextStyle(
                   color: progress > 0.85 ? colors.danger : Colors.white60,
                   fontSize: 12,
@@ -669,7 +692,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 onTap: () => Navigator.of(context).pushNamed('/nearby-places'),
               ),
               const SizedBox(width: 12),
-              const Expanded(child: SizedBox()),
+              _quickActionCard(
+                icon: Icons.repeat_rounded,
+                label: 'Recurring\nBills',
+                color: colors.info,
+                onTap: () => Navigator.of(context).pushNamed('/recurring'),
+              ),
             ],
           ),
         ],
@@ -953,25 +981,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       elevation: 4,
       child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
     );
-  }
-
-  String _getCurrentMonth() {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final now = DateTime.now();
-    return '${months[now.month - 1]} ${now.year}';
   }
 
   void _showBudgetAlertsSheet(BudgetModel? budget, String currency) {

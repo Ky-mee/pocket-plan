@@ -14,6 +14,7 @@ import 'screens/analytics/analytics_screen.dart';
 import 'screens/ai_advisor/ai_advisor_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/nearby_places/nearby_places_screen.dart';
+import 'screens/recurring/recurring_screen.dart';
 import 'package:pocket_plan/providers/theme_provider.dart';
 import 'package:pocket_plan/providers/accent_color_provider.dart';
 import 'package:pocket_plan/screens/onboarding/onboarding_screen.dart';
@@ -76,6 +77,7 @@ class PocketPlanApp extends ConsumerWidget {
         '/ai-advisor': (context) => const AiAdvisorScreen(),
         '/settings': (context) => const SettingsScreen(),
         '/nearby-places': (context) => const NearbyPlacesScreen(),
+        '/recurring': (context) => const RecurringScreen(),
         '/onboarding': (context) => const OnboardingScreen(),
         '/help': (context) => const HelpScreen(),
       },

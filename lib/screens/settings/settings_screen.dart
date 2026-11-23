@@ -6,6 +6,7 @@ import 'package:pocket_plan/core/services/auth_services.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 import 'package:pocket_plan/core/utils/amount_input.dart';
+import 'package:pocket_plan/core/utils/budget_cycle.dart';
 import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/user_model.dart';
 import 'package:pocket_plan/providers/accent_color_provider.dart';
@@ -28,6 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   bool _notificationsEnabled = true;
   bool _biometricAvailable = false;
   bool _carryForwardEnabled = true;
+  int _budgetStartDay = 1;
 
   UserModel? _userModel;
 
@@ -74,6 +76,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         _biometricEnabled = biometricEnabled;
         _notificationsEnabled = prefs['notificationsEnabled'] ?? true;
         _carryForwardEnabled = prefs['carryForwardEnabled'] ?? true;
+        _budgetStartDay = BudgetCycle.clampStartDay(
+          (prefs['budgetStartDay'] as num?)?.toInt() ?? 1,
+        );
       });
     }
   }
@@ -672,6 +677,102 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
+  static String _ordinalDay(int day) {
+    if (day >= 11 && day <= 13) return '${day}th';
+    switch (day % 10) {
+      case 1:
+        return '${day}st';
+      case 2:
+        return '${day}nd';
+      case 3:
+        return '${day}rd';
+      default:
+        return '${day}th';
+    }
+  }
+
+  void _showBudgetStartDayPicker() {
+    final colors = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Budget Cycle Start Day',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose the day your salary or monthly income arrives (1st–28th). Monthly resets and cycle progress will align to this day.',
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(28, (index) {
+                final day = index + 1;
+                final selected = day == _budgetStartDay;
+                return GestureDetector(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _db.updateBudgetStartDay(_userId, day);
+                    if (mounted) setState(() => _budgetStartDay = day);
+                  },
+                  child: Container(
+                    width: 46,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: selected ? colors.accent : colors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected ? colors.accent : colors.border,
+                      ),
+                    ),
+                    child: Text(
+                      '$day',
+                      style: TextStyle(
+                        color: selected ? Colors.white : colors.textPrimary,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showPrivacyDialog() {
     final colors = context.colors;
     showDialog(
@@ -852,6 +953,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         onTap: () => _showThemePicker(themeMode),
                       ),
                       _accentColorRow(),
+                      _settingsTile(
+                        icon: Icons.calendar_today_rounded,
+                        label: 'Budget Start Day',
+                        value: '${_ordinalDay(_budgetStartDay)} of cycle',
+                        color: colors.info,
+                        onTap: _showBudgetStartDayPicker,
+                      ),
                       _settingsToggle(
                         icon: Icons.savings_outlined,
                         label: 'Carry Forward Balance',

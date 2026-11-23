@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/budget_cycle.dart';
 
 class BudgetSplitPreset {
   final String name;
@@ -118,7 +119,8 @@ class BudgetModel {
   final double commitmentRatio;
   final double spendingRatio;
   final double savingsRatio;
-  final String month; // Format: "2026-04"
+  final int budgetStartDay; // 1..28, default 1 (calendar month)
+  final String month; // Cycle key, e.g. "2026-04"
   final DateTime updatedAt;
 
   BudgetModel({
@@ -130,6 +132,7 @@ class BudgetModel {
     this.commitmentRatio = 0.50,
     this.spendingRatio = 0.30,
     this.savingsRatio = 0.20,
+    this.budgetStartDay = 1,
     required this.month,
     required this.updatedAt,
   });
@@ -160,13 +163,16 @@ class BudgetModel {
     double commitmentRatio = 0.50,
     double spendingRatio = 0.30,
     double savingsRatio = 0.20,
+    int budgetStartDay = 1,
   }) {
+    final safeStartDay = BudgetCycle.clampStartDay(budgetStartDay);
     return BudgetModel(
       userId: userId,
       monthlyAllowance: allowance,
       commitmentRatio: commitmentRatio,
       spendingRatio: spendingRatio,
       savingsRatio: savingsRatio,
+      budgetStartDay: safeStartDay,
       commitments: BucketData(
         limit: allowance * commitmentRatio,
         baseLimit: allowance * commitmentRatio,
@@ -192,6 +198,9 @@ class BudgetModel {
 
   factory BudgetModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final startDay = BudgetCycle.clampStartDay(
+      (data['budgetStartDay'] as num?)?.toInt() ?? 1,
+    );
     return BudgetModel(
       userId: doc.id,
       monthlyAllowance: (data['monthlyAllowance'] ?? 0.0).toDouble(),
@@ -201,7 +210,10 @@ class BudgetModel {
       commitmentRatio: (data['commitmentRatio'] ?? 0.50).toDouble(),
       spendingRatio: (data['spendingRatio'] ?? 0.30).toDouble(),
       savingsRatio: (data['savingsRatio'] ?? 0.20).toDouble(),
-      month: data['month'] ?? '',
+      budgetStartDay: startDay,
+      month:
+          data['month'] ??
+          BudgetCycle.forDate(DateTime.now(), startDay: startDay).key,
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -217,6 +229,7 @@ class BudgetModel {
       'commitmentRatio': commitmentRatio,
       'spendingRatio': spendingRatio,
       'savingsRatio': savingsRatio,
+      'budgetStartDay': budgetStartDay,
       'month': month,
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -231,6 +244,7 @@ class BudgetModel {
     double? commitmentRatio,
     double? spendingRatio,
     double? savingsRatio,
+    int? budgetStartDay,
     String? month,
     DateTime? updatedAt,
   }) {
@@ -243,6 +257,9 @@ class BudgetModel {
       commitmentRatio: commitmentRatio ?? this.commitmentRatio,
       spendingRatio: spendingRatio ?? this.spendingRatio,
       savingsRatio: savingsRatio ?? this.savingsRatio,
+      budgetStartDay: budgetStartDay != null
+          ? BudgetCycle.clampStartDay(budgetStartDay)
+          : this.budgetStartDay,
       month: month ?? this.month,
       updatedAt: updatedAt ?? this.updatedAt,
     );

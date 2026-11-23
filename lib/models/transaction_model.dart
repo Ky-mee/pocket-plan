@@ -125,3 +125,20 @@ class TransactionCategories {
     ],
   };
 }
+
+/// Optional prefill payload passed via route arguments to `/add-transaction`.
+class TransactionPrefill {
+  final TransactionType type;
+  final BudgetCategory? budgetCategory;
+  final String? category;
+  final double? amount;
+  final String? description;
+
+  const TransactionPrefill({
+    this.type = TransactionType.expense,
+    this.budgetCategory,
+    this.category,
+    this.amount,
+    this.description,
+  });
+}

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:pocket_plan/core/config/app_config.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
+import 'package:pocket_plan/core/services/ai_chat_service.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 import 'package:pocket_plan/core/utils/budget_calculator.dart';
@@ -26,6 +27,7 @@ class AiAdvisorScreen extends ConsumerStatefulWidget {
 class _AiAdvisorScreenState extends ConsumerState<AiAdvisorScreen>
     with TickerProviderStateMixin {
   final DatabaseService _db = DatabaseService();
+  final AiChatService _chatService = AiChatService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -73,6 +75,26 @@ class _AiAdvisorScreenState extends ConsumerState<AiAdvisorScreen>
     _txSub = _db.transactionsStream(_userId).listen((txs) {
       if (mounted) setState(() => _transactions = txs);
     });
+    final saved = await _chatService.loadMessages(_userId);
+    if (mounted &&
+        saved.isNotEmpty &&
+        _messages.where((m) => m.isUser).isEmpty) {
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(
+            saved.map(
+              (m) => ChatMessage(
+                text: m['text'] as String,
+                isUser: m['isUser'] as bool,
+                timestamp: m['timestamp'] as DateTime,
+                hasAnimated: true,
+              ),
+            ),
+          );
+      });
+      _scrollToBottom();
+    }
     final user = await _db.getUser(_userId);
     if (mounted && user != null) {
       setState(() => _userModel = user);
@@ -221,6 +243,19 @@ class _AiAdvisorScreenState extends ConsumerState<AiAdvisorScreen>
           );
           _isLoading = false;
         });
+        if (_userId.isNotEmpty) {
+          final persistable = _messages
+              .where((m) => !m.isTyping && !m.isWelcome && !m.isError)
+              .map(
+                (m) => <String, dynamic>{
+                  'text': m.text,
+                  'isUser': m.isUser,
+                  'timestamp': m.timestamp,
+                },
+              )
+              .toList();
+          await _chatService.saveMessages(_userId, persistable);
+        }
       } else if (response.statusCode == 401) {
         _handleError('Session expired. Please sign in again.');
       } else if (response.statusCode == 429) {
@@ -362,6 +397,9 @@ class _AiAdvisorScreenState extends ConsumerState<AiAdvisorScreen>
           ),
           GestureDetector(
             onTap: () {
+              if (_userId.isNotEmpty) {
+                _chatService.clearMessages(_userId);
+              }
               setState(() {
                 _messages.clear();
                 _addWelcomeMessage();
