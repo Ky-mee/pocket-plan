@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/services/auth_services.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/utils/amount_input.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
+import 'package:pocket_plan/models/budget_model.dart';
+import 'package:pocket_plan/models/user_model.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -17,12 +23,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _allowanceController = TextEditingController();
+  final _incomeController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
-  int _currentStep = 0; // 0 = personal info, 1 = financial info
+  int _currentStep = 0; // 0 = personal info, 1 = financial setup
+
+  String _selectedCurrency = 'MYR';
+  String _selectedLifeStage = 'general';
+  BudgetSplitPreset _selectedPreset = kBudgetSplitPresets.first;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -49,7 +59,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _allowanceController.dispose();
+    _incomeController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -63,8 +73,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        monthlyAllowance: double.tryParse(_allowanceController.text) ?? 0.0,
+        monthlyAllowance: double.tryParse(_incomeController.text) ?? 0.0,
+        currency: _selectedCurrency,
+        lifeStage: _selectedLifeStage,
+        commitmentRatio: _selectedPreset.commitment,
+        spendingRatio: _selectedPreset.spending,
+        savingsRatio: _selectedPreset.savings,
       );
+      await ref.read(currencyProvider.notifier).setCurrency(_selectedCurrency);
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');
       }
@@ -99,7 +115,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   void _nextStep() {
     if (_currentStep == 0) {
-      // Validate first step fields manually
       if (_nameController.text.trim().isEmpty) {
         _showError('Please enter your name.');
         return;
@@ -149,13 +164,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Header
               _buildHeader(),
-
-              // Step indicator
               _buildStepIndicator(),
-
-              // Form
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -240,7 +250,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               Text(
                 _currentStep == 0
                     ? 'Join PocketPlan today'
-                    : 'Set your monthly budget',
+                    : 'Personalize your monthly budget',
                 style: TextStyle(fontSize: 13, color: colors.textSecondary),
               ),
             ],
@@ -319,7 +329,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         _buildField(
           controller: _nameController,
           label: 'Full Name',
-          hint: 'e.g. Daniel Aiman',
+          hint: 'e.g. Alex Tan',
           icon: Icons.person_outline_rounded,
           validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
         ),
@@ -327,7 +337,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         _buildField(
           controller: _emailController,
           label: 'Email Address',
-          hint: 'e.g. daniel@student.utem.edu.my',
+          hint: 'e.g. alex@example.com',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           validator: (v) {
@@ -398,11 +408,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   Widget _buildStep2() {
     final colors = context.colors;
+    final symbol = CurrencyFormatter.symbol(_selectedCurrency);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        // Info card
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -416,7 +426,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'PocketPlan uses the 50/30/20 rule to split your allowance automatically.',
+                  'Choose your currency, life stage, and budget split to tailor your monthly plan.',
                   style: TextStyle(
                     fontSize: 13,
                     color: colors.textPrimary.withOpacity(0.8),
@@ -427,15 +437,92 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+        _buildDropdownLabel('Life Stage (Optional)'),
+        const SizedBox(height: 8),
+        _buildDropdownContainer<String>(
+          value: _selectedLifeStage,
+          icon: Icons.badge_outlined,
+          items: UserLifeStage.labels.entries
+              .map(
+                (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
+              )
+              .toList(),
+          onChanged: (val) =>
+              setState(() => _selectedLifeStage = val ?? 'general'),
+        ),
+        const SizedBox(height: 16),
+        _buildDropdownLabel('Preferred Currency'),
+        const SizedBox(height: 8),
+        _buildDropdownContainer<String>(
+          value: _selectedCurrency,
+          icon: Icons.currency_exchange_rounded,
+          items: kSupportedCurrencies
+              .map(
+                (c) => DropdownMenuItem(
+                  value: c.code,
+                  child: Text('${c.code} (${c.symbol}) — ${c.name}'),
+                ),
+              )
+              .toList(),
+          onChanged: (val) => setState(() => _selectedCurrency = val ?? 'MYR'),
+        ),
+        const SizedBox(height: 16),
+        _buildDropdownLabel('Budget Split Rule'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: kBudgetSplitPresets.map((preset) {
+            final selected = preset.name == _selectedPreset.name;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedPreset = preset),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? colors.accent.withOpacity(0.16)
+                      : colors.surface.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: selected ? colors.accent : colors.border,
+                    width: selected ? 1.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${preset.name} (${preset.ratioLabel})',
+                      style: TextStyle(
+                        color: selected ? colors.accent : colors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
         _buildField(
-          controller: _allowanceController,
-          label: 'Monthly Allowance (RM)',
-          hint: 'e.g. 1500.00',
+          controller: _incomeController,
+          label: 'Monthly Income ($symbol)',
+          hint: 'e.g. 2500.00',
           icon: Icons.account_balance_wallet_outlined,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [AmountInputFormatter()],
           validator: (v) {
-            if (v == null || v.isEmpty) return 'Please enter your allowance';
+            if (v == null || v.isEmpty) {
+              return 'Please enter your monthly income';
+            }
             if (double.tryParse(v) == null) return 'Enter a valid amount';
             if (double.parse(v) <= 0) return 'Amount must be greater than 0';
             return null;
@@ -443,11 +530,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           onSubmit: _register,
         ),
         const SizedBox(height: 20),
-
-        // Budget breakdown preview
-        if (_allowanceController.text.isNotEmpty) _buildBudgetPreview(),
-
-        const SizedBox(height: 32),
+        if (_incomeController.text.isNotEmpty) _buildBudgetPreview(),
+        const SizedBox(height: 28),
         _buildButton(
           label: _isLoading ? 'Creating Account...' : 'Create Account',
           onTap: _isLoading ? null : _register,
@@ -458,9 +542,59 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     );
   }
 
+  Widget _buildDropdownLabel(String label) {
+    final colors = context.colors;
+    return Text(
+      label,
+      style: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
+  Widget _buildDropdownContainer<T>({
+    required T value,
+    required IconData icon,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: colors.surface.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.accent, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<T>(
+                value: value,
+                isExpanded: true,
+                dropdownColor: colors.surface,
+                style: TextStyle(color: colors.textPrimary, fontSize: 14),
+                items: items,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBudgetPreview() {
     final colors = context.colors;
-    final amount = double.tryParse(_allowanceController.text) ?? 0;
+    final amount = double.tryParse(_incomeController.text) ?? 0;
+    final cPct = (_selectedPreset.commitment * 100).round();
+    final spPct = (_selectedPreset.spending * 100).round();
+    final svPct = (_selectedPreset.savings * 100).round();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -472,7 +606,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your Budget Breakdown',
+            'Your Monthly Budget Breakdown',
             style: TextStyle(
               color: colors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -480,11 +614,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             ),
           ),
           const SizedBox(height: 12),
-          _budgetRow('Commitments (50%)', amount * 0.5, colors.accent),
+          _budgetRow(
+            'Essential Needs ($cPct%)',
+            amount * _selectedPreset.commitment,
+            colors.accent,
+          ),
           const SizedBox(height: 8),
-          _budgetRow('Spending (30%)', amount * 0.3, colors.success),
+          _budgetRow(
+            'Lifestyle ($spPct%)',
+            amount * _selectedPreset.spending,
+            colors.success,
+          ),
           const SizedBox(height: 8),
-          _budgetRow('Savings (20%)', amount * 0.2, colors.warning),
+          _budgetRow(
+            'Savings ($svPct%)',
+            amount * _selectedPreset.savings,
+            colors.warning,
+          ),
         ],
       ),
     );
@@ -510,7 +656,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           ],
         ),
         Text(
-          'RM ${amount.toStringAsFixed(2)}',
+          CurrencyFormatter.format(amount, code: _selectedCurrency),
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.w600,
@@ -529,8 +675,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     bool obscure = false,
     Widget? suffixIcon,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
-    VoidCallback? onSubmit, // Enter on the last field of a step
+    VoidCallback? onSubmit,
   }) {
     final colors = context.colors;
     return Column(
@@ -549,9 +696,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           controller: controller,
           obscureText: obscure,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           validator: validator,
-          textInputAction:
-              onSubmit != null ? TextInputAction.done : TextInputAction.next,
+          textInputAction: onSubmit != null
+              ? TextInputAction.done
+              : TextInputAction.next,
           onFieldSubmitted: (_) => onSubmit != null
               ? onSubmit()
               : FocusScope.of(context).nextFocus(),

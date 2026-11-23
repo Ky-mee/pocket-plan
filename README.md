@@ -1,17 +1,56 @@
-# pocket_plan
+# PocketPlan
 
-A new Flutter project.
+Cross-platform personal finance & monthly budgeting app built with **Flutter**, **Firebase**, **OpenStreetMap**, and a **Cloudflare Workers + Gemini** AI Financial Advisor proxy.
 
-## Getting Started
+## Core Features
+- **Monthly Income & Flexible Split Budgeting:** Start with 50/30/20 or customize splits (e.g., 60/20/20, 70/20/10, or custom percentages) across **Essential Needs**, **Lifestyle & Wants**, and **Savings & Goals**, with optional monthly carry-forward.
+- **Transaction Tracking & Export:** Record income and expenses with integer-cent input validation, edit/delete atomically via Firestore transactions, filter by bucket/type, and export to **PDF** or **CSV**.
+- **Multi-Currency & All-Ages Profiles:** Supports 10 currencies (`MYR`, `USD`, `SGD`, `GBP`, `EUR`, `AUD`, `IDR`, `THB`, `PHP`, `JPY`), life-stage personalization (`Student`, `Young Adult`, `Working Adult`, `Family / Household`, `Retiree / Senior`), and System/Light/Dark themes.
+- **Analytics & Fuzzy-Logic Spending Forecast:** 7-day trend chart, month-over-month comparison, category breakdown, and Mamdani fuzzy inference 1-month and 6-month forecasts.
+- **AI Financial Advisor:** Authenticated Cloudflare Worker proxy (`worker/`) enforcing Firebase ID tokens, per-user daily limits, and server-side system prompts.
+- **Food Nearby:** Interactive `flutter_map` + OpenStreetMap Overpass query for budget-friendly restaurants, food courts, cafes, bakeries, and grocery stores within 5km.
 
-This project is a starting point for a Flutter application.
+## Local Development
+```bash
+# 1. Install Flutter dependencies
+flutter pub get
 
-A few resources to get you started if this is your first Flutter project:
+# 2. Configure local AI proxy URL in .env (or pass --dart-define)
+# .env:
+# GEMINI_PROXY_URL=https://pocketplan-ai.<your-subdomain>.workers.dev
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+# 3. Run static analysis and tests
+flutter analyze --no-fatal-infos
+flutter test
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# 4. Run Cloudflare Worker tests
+cd worker && npm test
+```
+
+## Production & Store Release Checklist
+1. **Deploy hardened AI proxy Worker** (activates server-side system prompt & timeout handling):
+   ```bash
+   cd worker
+   npx wrangler deploy
+   ```
+2. **Deploy updated Firestore rules** (owner-only rules):
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+3. **Android Release Signing:** Create an upload keystore and `android/key.properties` (gitignored):
+   ```properties
+   storePassword=<your-store-password>
+   keyPassword=<your-key-password>
+   keyAlias=upload
+   storeFile=<path-to-upload-keystore.jks>
+   ```
+   Then build:
+   ```bash
+   flutter build appbundle --release --dart-define=GEMINI_PROXY_URL=https://pocketplan-ai.<your-subdomain>.workers.dev
+   ```
+4. **Web Build & Hosting:**
+   ```bash
+   flutter build web --release --dart-define=GEMINI_PROXY_URL=https://pocketplan-ai.<your-subdomain>.workers.dev
+   firebase deploy --only hosting
+   ```
+5. **Privacy Policy:** Host `docs/PRIVACY_POLICY.md` at a public URL and link it in Google Play Console and App Store Connect.

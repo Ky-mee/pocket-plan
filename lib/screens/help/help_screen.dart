@@ -20,19 +20,19 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
       color: colors.accent,
       items: [
         HelpItem(
-          question: 'How do I set my monthly allowance?',
+          question: 'How do I set my monthly income?',
           answer:
-              'Go to Settings → tap on "Monthly Allowance" → enter your allowance amount. PocketPlan will automatically split it into 50% Commitments, 30% Spending and 20% Savings.',
+              'Go to Settings → tap on "Monthly Income" (or tap "Income" in Budget Manager) → enter your amount. PocketPlan splits it automatically across Essential Needs, Lifestyle & Wants, and Savings & Goals.',
         ),
         HelpItem(
-          question: 'What is the 50/30/20 rule?',
+          question: 'How do flexible budget splits work?',
           answer:
-              'The 50/30/20 rule is a simple budgeting method:\n\n• 50% for Commitments — rent, bills, car, PTPTN\n• 30% for Spending — food, shopping, entertainment\n• 20% for Savings — bank savings, ASB, investments\n\nPocketPlan applies this rule automatically to your allowance.',
+              'By default PocketPlan uses 50/30/20 (50% Essential Needs, 30% Lifestyle, 20% Savings). In Budget Manager, tap "Split" to switch to another preset like 60/20/20 or 70/20/10, or use sliders to set custom percentages.',
         ),
         HelpItem(
-          question: 'Can I change the budget percentages?',
+          question: 'Can I change currency or bucket limits?',
           answer:
-              'Yes! Go to Budget Manager → tap "Edit limit" under any bucket to set a custom amount. You can adjust each bucket independently to fit your lifestyle.',
+              'Yes! Pick your preferred currency in Settings → Currency. You can also tap "Edit limit" under any bucket in Budget Manager to set a custom limit.',
         ),
       ],
     ),
@@ -44,22 +44,17 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
         HelpItem(
           question: 'How do I add a transaction?',
           answer:
-              'Tap the + button on the Home screen or the FAB button on any screen. Select Expense or Income, enter the amount, choose a category and budget bucket, add a description, and tap Save.',
+              'Tap the + button on the Home screen or Transactions page. Choose Expense or Income, enter the amount, pick a category and budget bucket, add an optional note, and tap Save.',
         ),
         HelpItem(
-          question: 'How do I edit a transaction?',
+          question: 'How do I edit or delete a transaction?',
           answer:
-              'Go to Transactions → find the transaction → tap the edit icon (pencil) on the right side of the card. Make your changes and tap Save Changes.',
-        ),
-        HelpItem(
-          question: 'How do I delete a transaction?',
-          answer:
-              'Go to Transactions → swipe the transaction card from right to left → tap Delete in the confirmation dialog. Your budget will be automatically updated.',
+              'Go to Transactions → tap the edit (pencil) icon to update details, or swipe left (or tap delete on desktop) to remove it. Your monthly budget updates automatically.',
         ),
         HelpItem(
           question: 'How do I export my transactions?',
           answer:
-              'Go to Transactions → tap the download icon in the top right → choose Export as PDF or Export as CSV. The file will be shared via your phone\'s share sheet.',
+              'Go to Transactions → tap the download icon in the top right → choose Export as PDF or Export as CSV.',
         ),
       ],
     ),
@@ -71,61 +66,61 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
         HelpItem(
           question: 'What does the Analytics screen show?',
           answer:
-              'The Analytics screen has 3 tabs:\n\n• Overview — income vs expenses, 7-day bar chart, month comparison\n• Categories — breakdown of spending by category with pie chart\n• Prediction — AI-powered spending forecast for next month based on your history',
+              'The Analytics screen has 3 tabs:\n\n• Overview — income vs expenses, 7-day bar chart, month comparison\n• Categories — breakdown of spending by category with pie chart\n• Prediction — fuzzy-logic spending forecast for upcoming months based on your history',
         ),
         HelpItem(
           question: 'When does my budget reset?',
           answer:
-              'Your budget automatically resets on the 1st of every month. Your previous month\'s data is archived so you can review it in the Analytics screen.',
+              'Your budget automatically resets on the 1st of every month. Your previous month\'s summary is archived, and positive leftovers can carry forward if enabled in Settings.',
         ),
         HelpItem(
-          question: 'Why is my budget showing red?',
+          question: 'Why is a bucket showing red?',
           answer:
-              'Red means you have exceeded the limit for that budget bucket. Go to Budget Manager to see which bucket is over the limit. You can either reduce spending or increase the limit for that bucket.',
+              'Red means you have exceeded the limit for that bucket. Open Budget Manager to review your spending or adjust the bucket limit.',
         ),
       ],
     ),
     HelpSection(
       icon: '🤖',
-      title: 'AI Financial Advisor',
+      title: 'AI Financial Advisor & Food Nearby',
       color: const Color(0xFF9C8DFF),
       items: [
         HelpItem(
           question: 'What can the AI Advisor help with?',
           answer:
-              'The AI Advisor can:\n\n• Analyze your spending habits\n• Suggest affordable places to eat nearby\n• Advise on whether a purchase fits your budget\n• Recommend savings and investment options\n• Answer any finance-related questions',
+              'The AI Advisor can analyze your monthly spending, suggest ways to save on essentials, evaluate purchase affordability, and share general savings guidance tailored to your life stage. Note: AI replies are informational only and not licensed financial advice.',
         ),
         HelpItem(
-          question: 'How does the AI know my finances?',
+          question: 'How does the AI know my budget?',
           answer:
-              'The AI receives your current budget snapshot — allowance, total spent, remaining balance, and recent transactions — before answering. This makes the advice personalized to your actual financial situation.',
+              'When you send a message, PocketPlan shares your current monthly income, bucket totals, top categories, and recent transactions securely with our proxy so advice matches your real numbers.',
         ),
         HelpItem(
-          question: 'How do I find food nearby?',
+          question: 'How do I find affordable food or groceries nearby?',
           answer:
-              'Tap the green location button in the AI Advisor header, or tap "Food Nearby" on the Home screen. The map will show nearby restaurants, cafes, and food courts within 5km using OpenStreetMap data.',
+              'Tap the green location button in the AI Advisor header, or tap "Food Nearby" on the Home screen. The map shows restaurants, food courts, cafes, bakeries, and grocery stores within 5km using OpenStreetMap data.',
         ),
       ],
     ),
     HelpSection(
       icon: '🔒',
-      title: 'Security & Account',
+      title: 'Security, Privacy & Account',
       color: colors.danger,
       items: [
         HelpItem(
-          question: 'How do I enable fingerprint login?',
+          question: 'How do I enable biometric login?',
           answer:
-              'Go to Settings → Security → toggle on "Biometric Login". Make sure your phone has fingerprint or face unlock set up. Next time you open the app, it will prompt for biometric authentication.',
+              'Go to Settings → Security → toggle on "Biometric Login" on supported mobile devices with fingerprint or face unlock configured.',
         ),
         HelpItem(
-          question: 'How do I change my password?',
+          question: 'How do I delete my account and data?',
           answer:
-              'Go to Settings → Security → tap "Change Password". A password reset link will be sent to your registered email address.',
+              'Go to Settings → Security → tap "Delete Account", confirm your password, and PocketPlan will permanently remove your account, budget, and transactions.',
         ),
         HelpItem(
           question: 'Is my financial data secure?',
           answer:
-              'Yes. All data is stored in Firebase Firestore with security rules that ensure only you can access your own data. Firebase Authentication handles login security with industry-standard encryption.',
+              'Yes. All data is stored in Firebase Firestore with owner-only security rules, and AI requests pass through an authenticated proxy.',
         ),
       ],
     ),
@@ -387,10 +382,10 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
       ),
       child: Column(
         children: [
-          const Text('👨‍💻', style: TextStyle(fontSize: 32)),
+          const Text('💼', style: TextStyle(fontSize: 32)),
           const SizedBox(height: 12),
           Text(
-            'PocketPlan FYP',
+            'About PocketPlan',
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: 16,
@@ -399,7 +394,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 4),
           Text(
-            'Universiti Teknikal Malaysia Melaka\nFaculty of Information & Communication Technology\nSession 2025/2026',
+            'Smart monthly budgeting, AI guidance, and local budget-friendly dining for every stage of life.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.textSecondary,

@@ -1,21 +1,24 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/utils/amount_input.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
-import 'package:pocket_plan/core/themes/app_colors.dart';
-import 'package:pocket_plan/core/layout/desktop_shell.dart';
-import 'package:pocket_plan/core/utils/amount_input.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
 
-class BudgetScreen extends StatefulWidget {
+class BudgetScreen extends ConsumerStatefulWidget {
   const BudgetScreen({super.key});
 
   @override
-  State<BudgetScreen> createState() => _BudgetScreenState();
+  ConsumerState<BudgetScreen> createState() => _BudgetScreenState();
 }
 
-class _BudgetScreenState extends State<BudgetScreen>
+class _BudgetScreenState extends ConsumerState<BudgetScreen>
     with TickerProviderStateMixin {
   final DatabaseService _db = DatabaseService();
   late AnimationController _entryController;
@@ -46,6 +49,7 @@ class _BudgetScreenState extends State<BudgetScreen>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final currency = ref.watch(currencyProvider);
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
@@ -73,9 +77,21 @@ class _BudgetScreenState extends State<BudgetScreen>
                   child: CircularProgressIndicator(color: colors.accent),
                 );
               }
+
+              final cPct = '${((budget?.commitmentRatio ?? 0.50) * 100).round()}%';
+              final spPct = '${((budget?.spendingRatio ?? 0.30) * 100).round()}%';
+              final svPct = '${((budget?.savingsRatio ?? 0.20) * 100).round()}%';
+
               if (isDesktopLayout(context)) {
                 return SingleChildScrollView(
-                  child: _buildDesktopBody(budget, colors),
+                  child: _buildDesktopBody(
+                    budget,
+                    colors,
+                    currency,
+                    cPct,
+                    spPct,
+                    svPct,
+                  ),
                 );
               }
               return CustomScrollView(
@@ -83,33 +99,36 @@ class _BudgetScreenState extends State<BudgetScreen>
                   SliverToBoxAdapter(
                     child: Column(
                       children: [
-                        _buildHeader(budget),
-                        _buildOverviewCard(budget),
+                        _buildHeader(budget, currency),
+                        _buildOverviewCard(budget, currency),
                         _buildDonutChart(budget),
                         _buildBucketCard(
                           budget: budget,
+                          currency: currency,
                           category: BudgetCategory.commitment,
-                          label: 'Commitments',
-                          subtitle: 'Bills, rent, loans, insurance',
-                          percent: '50%',
+                          label: 'Essential Needs',
+                          subtitle: 'Housing, groceries, bills, healthcare',
+                          percent: cPct,
                           color: colors.accent,
                           icon: Icons.home_rounded,
                         ),
                         _buildBucketCard(
                           budget: budget,
+                          currency: currency,
                           category: BudgetCategory.spending,
-                          label: 'Spending',
-                          subtitle: 'Food, shopping, entertainment',
-                          percent: '30%',
+                          label: 'Lifestyle & Wants',
+                          subtitle: 'Dining out, shopping, leisure',
+                          percent: spPct,
                           color: colors.success,
                           icon: Icons.shopping_bag_rounded,
                         ),
                         _buildBucketCard(
                           budget: budget,
+                          currency: currency,
                           category: BudgetCategory.savings,
-                          label: 'Savings',
-                          subtitle: 'Bank, ASB, gold, investments',
-                          percent: '20%',
+                          label: 'Savings & Goals',
+                          subtitle: 'Emergency fund, retirement, investments',
+                          percent: svPct,
                           color: colors.warning,
                           icon: Icons.savings_rounded,
                         ),
@@ -126,18 +145,23 @@ class _BudgetScreenState extends State<BudgetScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // HEADER
-  // ─────────────────────────────────────────
-  // Desktop: overview + donut side by side, three buckets in one row.
-  Widget _buildDesktopBody(BudgetModel? budget, dynamic colors) {
+  Widget _buildDesktopBody(
+    BudgetModel? budget,
+    AppColors colors,
+    String currency,
+    String cPct,
+    String spPct,
+    String svPct,
+  ) {
     return Column(
       children: [
-        _buildHeader(budget),
+        _buildHeader(budget, currency),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _buildOverviewCard(budget, minHeight: 258)),
+            Expanded(
+              child: _buildOverviewCard(budget, currency, minHeight: 258),
+            ),
             Expanded(child: _buildDonutChart(budget)),
           ],
         ),
@@ -148,10 +172,11 @@ class _BudgetScreenState extends State<BudgetScreen>
             Expanded(
               child: _buildBucketCard(
                 budget: budget,
+                currency: currency,
                 category: BudgetCategory.commitment,
-                label: 'Commitments',
-                subtitle: 'Bills, rent, loans, insurance',
-                percent: '50%',
+                label: 'Essential Needs',
+                subtitle: 'Housing, groceries, bills, healthcare',
+                percent: cPct,
                 color: colors.accent,
                 icon: Icons.home_rounded,
               ),
@@ -159,10 +184,11 @@ class _BudgetScreenState extends State<BudgetScreen>
             Expanded(
               child: _buildBucketCard(
                 budget: budget,
+                currency: currency,
                 category: BudgetCategory.spending,
-                label: 'Spending',
-                subtitle: 'Food, shopping, entertainment',
-                percent: '30%',
+                label: 'Lifestyle & Wants',
+                subtitle: 'Dining out, shopping, leisure',
+                percent: spPct,
                 color: colors.success,
                 icon: Icons.shopping_bag_rounded,
               ),
@@ -170,10 +196,11 @@ class _BudgetScreenState extends State<BudgetScreen>
             Expanded(
               child: _buildBucketCard(
                 budget: budget,
+                currency: currency,
                 category: BudgetCategory.savings,
-                label: 'Savings',
-                subtitle: 'Bank, ASB, gold, investments',
-                percent: '20%',
+                label: 'Savings & Goals',
+                subtitle: 'Emergency fund, retirement, investments',
+                percent: svPct,
                 color: colors.warning,
                 icon: Icons.savings_rounded,
               ),
@@ -185,7 +212,7 @@ class _BudgetScreenState extends State<BudgetScreen>
     );
   }
 
-  Widget _buildHeader(BudgetModel? budget) {
+  Widget _buildHeader(BudgetModel? budget, String currency) {
     final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -219,8 +246,28 @@ class _BudgetScreenState extends State<BudgetScreen>
             ),
           ),
           GestureDetector(
+            onTap: () => budget != null ? _showChangeSplitSheet(budget) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colors.border),
+              ),
+              child: Text(
+                'Split',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
             onTap: () =>
-                budget != null ? _showEditAllowanceDialog(budget) : null,
+                budget != null ? _showEditAllowanceDialog(budget, currency) : null,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -229,7 +276,7 @@ class _BudgetScreenState extends State<BudgetScreen>
                 border: Border.all(color: colors.accent.withOpacity(0.3)),
               ),
               child: Text(
-                'Edit',
+                'Income',
                 style: TextStyle(
                   color: colors.accent,
                   fontSize: 13,
@@ -243,10 +290,11 @@ class _BudgetScreenState extends State<BudgetScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // OVERVIEW CARD
-  // ─────────────────────────────────────────
-  Widget _buildOverviewCard(BudgetModel? budget, {double? minHeight}) {
+  Widget _buildOverviewCard(
+    BudgetModel? budget,
+    String currency, {
+    double? minHeight,
+  }) {
     final colors = context.colors;
     final allowance = budget?.monthlyAllowance ?? 0;
     final spent = budget?.totalSpent ?? 0;
@@ -278,8 +326,8 @@ class _BudgetScreenState extends State<BudgetScreen>
         children: [
           Expanded(
             child: _overviewStat(
-              'Monthly Allowance',
-              'RM ${allowance.toStringAsFixed(2)}',
+              'Monthly Income',
+              CurrencyFormatter.format(allowance, code: currency),
               Icons.account_balance_wallet_outlined,
             ),
           ),
@@ -287,7 +335,7 @@ class _BudgetScreenState extends State<BudgetScreen>
           Expanded(
             child: _overviewStat(
               'Total Spent',
-              'RM ${spent.toStringAsFixed(2)}',
+              CurrencyFormatter.format(spent, code: currency),
               Icons.arrow_upward_rounded,
             ),
           ),
@@ -295,7 +343,7 @@ class _BudgetScreenState extends State<BudgetScreen>
           Expanded(
             child: _overviewStat(
               'Remaining',
-              'RM ${remaining.toStringAsFixed(2)}',
+              CurrencyFormatter.format(remaining, code: currency),
               Icons.savings_outlined,
             ),
           ),
@@ -328,9 +376,6 @@ class _BudgetScreenState extends State<BudgetScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // DONUT CHART
-  // ─────────────────────────────────────────
   Widget _buildDonutChart(BudgetModel? budget) {
     final colors = context.colors;
     if (budget == null) return const SizedBox(height: 20);
@@ -408,13 +453,13 @@ class _BudgetScreenState extends State<BudgetScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _chartLegend(
-                      'Commitments',
+                      'Essential Needs',
                       committed,
                       total,
                       colors.accent,
                     ),
                     const SizedBox(height: 12),
-                    _chartLegend('Spending', spent, total, colors.success),
+                    _chartLegend('Lifestyle', spent, total, colors.success),
                     const SizedBox(height: 12),
                     _chartLegend('Savings', saved, total, colors.warning),
                     const SizedBox(height: 12),
@@ -463,11 +508,9 @@ class _BudgetScreenState extends State<BudgetScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // BUCKET CARD
-  // ─────────────────────────────────────────
   Widget _buildBucketCard({
     required BudgetModel? budget,
+    required String currency,
     required BudgetCategory category,
     required String label,
     required String subtitle,
@@ -508,7 +551,6 @@ class _BudgetScreenState extends State<BudgetScreen>
       ),
       child: Column(
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -590,8 +632,6 @@ class _BudgetScreenState extends State<BudgetScreen>
               ],
             ),
           ),
-
-          // Stats row
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: Row(
@@ -599,24 +639,22 @@ class _BudgetScreenState extends State<BudgetScreen>
               children: [
                 _statItem(
                   'Spent',
-                  'RM ${spent.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(spent, code: currency),
                   isExceeded ? colors.danger : color,
                 ),
                 _statItem(
                   'Limit',
-                  'RM ${limit.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(limit, code: currency),
                   colors.textSecondary,
                 ),
                 _statItem(
                   'Remaining',
-                  'RM ${remaining.abs().toStringAsFixed(2)}',
+                  CurrencyFormatter.format(remaining.abs(), code: currency),
                   remaining < 0 ? colors.danger : colors.success,
                 ),
               ],
             ),
           ),
-
-          // Progress bar
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: Column(
@@ -649,6 +687,7 @@ class _BudgetScreenState extends State<BudgetScreen>
                       onTap: () => budget != null
                           ? _showEditLimitDialog(
                               budget,
+                              currency,
                               category,
                               label,
                               color,
@@ -669,8 +708,6 @@ class _BudgetScreenState extends State<BudgetScreen>
               ],
             ),
           ),
-
-          // Items list
           if (budget != null && bucket != null)
             _buildItemsList(bucket.items, color, budget, category),
         ],
@@ -822,11 +859,221 @@ class _BudgetScreenState extends State<BudgetScreen>
     }
   }
 
-  // ─────────────────────────────────────────
-  // DIALOGS
-  // ─────────────────────────────────────────
-  void _showEditAllowanceDialog(BudgetModel budget) {
+  void _showChangeSplitSheet(BudgetModel budget) {
     final colors = context.colors;
+    int cPct = (budget.commitmentRatio * 100).round();
+    int spPct = (budget.spendingRatio * 100).round();
+    int svPct = 100 - cPct - spPct;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final totalPct = cPct + spPct + svPct;
+          final isValid = totalPct == 100;
+
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Budget Split Rule',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Pick a preset or customize how your monthly income is divided.',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: kBudgetSplitPresets.map((p) {
+                    final pc = (p.commitment * 100).round();
+                    final psp = (p.spending * 100).round();
+                    final psv = (p.savings * 100).round();
+                    final selected = cPct == pc && spPct == psp && svPct == psv;
+                    return GestureDetector(
+                      onTap: () => setSheetState(() {
+                        cPct = pc;
+                        spPct = psp;
+                        svPct = psv;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? colors.accent.withOpacity(0.15)
+                              : colors.surfaceAlt,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected ? colors.accent : colors.border,
+                          ),
+                        ),
+                        child: Text(
+                          '${p.name} (${p.ratioLabel})',
+                          style: TextStyle(
+                            color: selected
+                                ? colors.accent
+                                : colors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 18),
+                _ratioSlider(
+                  'Essential Needs',
+                  cPct,
+                  colors.accent,
+                  (v) => setSheetState(() => cPct = v.round()),
+                ),
+                _ratioSlider(
+                  'Lifestyle & Wants',
+                  spPct,
+                  colors.success,
+                  (v) => setSheetState(() => spPct = v.round()),
+                ),
+                _ratioSlider(
+                  'Savings & Goals',
+                  svPct,
+                  colors.warning,
+                  (v) => setSheetState(() => svPct = v.round()),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isValid
+                          ? 'Total: 100%'
+                          : 'Total: $totalPct% (must equal 100%)',
+                      style: TextStyle(
+                        color: isValid ? colors.success : colors.danger,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: !isValid
+                          ? null
+                          : () async {
+                              try {
+                                await _db.updateBudgetRatios(
+                                  userId: _userId,
+                                  commitmentRatio: cPct / 100.0,
+                                  spendingRatio: spPct / 100.0,
+                                  savingsRatio: svPct / 100.0,
+                                );
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              } catch (_) {
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Failed to update budget split.',
+                                      ),
+                                      backgroundColor: colors.danger,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors.accent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Apply Split'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _ratioSlider(
+    String label,
+    int pct,
+    Color color,
+    ValueChanged<double> onChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: context.colors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              '$pct%',
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: pct.toDouble().clamp(0, 100),
+          min: 0,
+          max: 100,
+          divisions: 20,
+          activeColor: color,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  void _showEditAllowanceDialog(BudgetModel budget, String currency) {
+    final colors = context.colors;
+    final symbol = CurrencyFormatter.symbol(currency);
     final ctrl = TextEditingController(
       text: budget.monthlyAllowance.toString(),
     );
@@ -836,7 +1083,7 @@ class _BudgetScreenState extends State<BudgetScreen>
         backgroundColor: colors.surfaceAlt,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          'Edit Monthly Allowance',
+          'Edit Monthly Income',
           style: TextStyle(
             color: colors.textPrimary,
             fontWeight: FontWeight.w700,
@@ -848,7 +1095,7 @@ class _BudgetScreenState extends State<BudgetScreen>
           inputFormatters: const [AmountInputFormatter()],
           style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
-            prefixText: 'RM ',
+            prefixText: '$symbol ',
             prefixStyle: TextStyle(color: colors.accent),
             filled: true,
             fillColor: colors.surface,
@@ -882,7 +1129,7 @@ class _BudgetScreenState extends State<BudgetScreen>
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('Failed to update allowance.'),
+                        content: const Text('Failed to update monthly income.'),
                         backgroundColor: context.colors.danger,
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -906,12 +1153,14 @@ class _BudgetScreenState extends State<BudgetScreen>
 
   void _showEditLimitDialog(
     BudgetModel budget,
+    String currency,
     BudgetCategory category,
     String label,
     Color color,
     double currentLimit,
   ) {
     final colors = context.colors;
+    final symbol = CurrencyFormatter.symbol(currency);
     final ctrl = TextEditingController(text: currentLimit.toStringAsFixed(2));
     showDialog(
       context: context,
@@ -931,7 +1180,7 @@ class _BudgetScreenState extends State<BudgetScreen>
           inputFormatters: const [AmountInputFormatter()],
           style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
-            prefixText: 'RM ',
+            prefixText: '$symbol ',
             prefixStyle: TextStyle(color: color),
             filled: true,
             fillColor: colors.surface,
@@ -1026,7 +1275,7 @@ class _BudgetScreenState extends State<BudgetScreen>
           controller: ctrl,
           style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
-            hintText: 'e.g. Netflix, Gym, PTPTN...',
+            hintText: 'e.g. Internet, Childcare, Mortgage...',
             hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
             filled: true,
             fillColor: colors.surface,

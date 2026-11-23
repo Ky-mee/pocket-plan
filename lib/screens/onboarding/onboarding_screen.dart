@@ -21,51 +21,51 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       emoji: '👋',
       title: 'Welcome to\nPocketPlan',
       subtitle:
-          'Your smart personal finance companion designed for Malaysian university students.',
+          'Your smart personal finance companion for managing monthly income and essential needs at any age.',
       color: colors.accent,
       features: [],
     ),
     OnboardingPage(
       emoji: '💰',
-      title: 'Smart Budget\nManagement',
+      title: 'Flexible Budget\nPlanning',
       subtitle:
-          'PocketPlan uses the 50/30/20 rule to automatically split your monthly allowance.',
+          'Split your monthly income your way — start with 50/30/20 or pick a ratio that fits your household.',
       color: colors.success,
       features: [
-        FeatureItem('50%', 'Commitments — rent, bills, loans'),
-        FeatureItem('30%', 'Spending — food, shopping, fun'),
-        FeatureItem('20%', 'Savings — ASB, gold, investments'),
+        FeatureItem('50%', 'Essential Needs — housing, groceries, bills, care'),
+        FeatureItem('30%', 'Lifestyle & Wants — dining out, shopping, leisure'),
+        FeatureItem('20%', 'Savings & Goals — emergency fund, retirement, assets'),
       ],
     ),
     OnboardingPage(
       emoji: '📊',
-      title: 'Track Every\nRinggit',
+      title: 'Track Every\nExpense',
       subtitle:
-          'Add income and expenses easily. Get real-time analytics and spending insights.',
+          'Record income and expenses in your preferred currency with real-time charts and alerts.',
       color: colors.warning,
       features: [
-        FeatureItem('📈', 'Spending charts and trends'),
-        FeatureItem('🔔', 'Budget exceeded alerts'),
-        FeatureItem('📄', 'Export to PDF or CSV'),
+        FeatureItem('📈', 'Spending trends and fuzzy-logic forecasts'),
+        FeatureItem('🔔', 'Smart alerts before limits are exceeded'),
+        FeatureItem('📄', 'Export statements to PDF or CSV'),
       ],
     ),
     OnboardingPage(
       emoji: '🤖',
       title: 'AI Financial\nAdvisor',
       subtitle:
-          'Ask our AI anything about your finances — from food budgets to investment tips.',
+          'Ask PocketPlan AI anything about your monthly budget — from affordable meals to savings goals.',
       color: const Color(0xFF9C8DFF),
       features: [
-        FeatureItem('🍜', 'Find affordable food nearby'),
-        FeatureItem('💡', 'Personalized spending advice'),
-        FeatureItem('📍', 'Nearby restaurant suggestions'),
+        FeatureItem('🍜', 'Find budget-friendly food spots nearby'),
+        FeatureItem('💡', 'Personalized guidance for your life stage'),
+        FeatureItem('📍', 'Live map of affordable places around you'),
       ],
     ),
     OnboardingPage(
       emoji: '🚀',
       title: "You're All\nSet!",
       subtitle:
-          'Start by entering your monthly allowance and PocketPlan will do the rest.',
+          'Enter your monthly income and PocketPlan will organize your budget automatically.',
       color: colors.accent,
       features: [],
     ),

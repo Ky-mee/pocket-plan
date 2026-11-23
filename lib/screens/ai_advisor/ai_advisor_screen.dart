@@ -1,23 +1,29 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:pocket_plan/core/config/app_config.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/utils/budget_calculator.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
-import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/models/user_model.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
+import 'package:pocket_plan/widgets/simple_markdown_text.dart';
 
-class AiAdvisorScreen extends StatefulWidget {
+class AiAdvisorScreen extends ConsumerStatefulWidget {
   const AiAdvisorScreen({super.key});
 
   @override
-  State<AiAdvisorScreen> createState() => _AiAdvisorScreenState();
+  ConsumerState<AiAdvisorScreen> createState() => _AiAdvisorScreenState();
 }
 
-class _AiAdvisorScreenState extends State<AiAdvisorScreen>
+class _AiAdvisorScreenState extends ConsumerState<AiAdvisorScreen>
     with TickerProviderStateMixin {
   final DatabaseService _db = DatabaseService();
   final TextEditingController _messageController = TextEditingController();
@@ -26,24 +32,21 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   BudgetModel? _budget;
+  UserModel? _userModel;
   List<TransactionModel> _transactions = [];
   StreamSubscription<BudgetModel?>? _budgetSub;
   StreamSubscription<List<TransactionModel>>? _txSub;
 
-  // Production: requests go through the PocketPlan proxy (worker/), which
-  // holds the Gemini key.
-  static String get _proxyUrl => dotenv.env['GEMINI_PROXY_URL'] ?? '';
-
+  String get _proxyUrl => AppConfig.geminiProxyUrl;
   String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // Quick suggestion prompts
   final List<Map<String, String>> _suggestions = [
-    {'icon': '🍜', 'text': 'Where can I eat affordably nearby?'},
+    {'icon': '🍜', 'text': 'Where can I find affordable meals nearby?'},
     {'icon': '📊', 'text': 'Analyze my spending this month'},
-    {'icon': '💰', 'text': 'How can I save more money?'},
-    {'icon': '🛒', 'text': 'Is it worth buying a new phone now?'},
-    {'icon': '🚗', 'text': 'Can I afford a car with my budget?'},
-    {'icon': '📈', 'text': 'Best investment options for students?'},
+    {'icon': '💡', 'text': 'How can I lower my monthly essentials?'},
+    {'icon': '🛒', 'text': 'Can I afford a major purchase right now?'},
+    {'icon': '🛡️', 'text': 'How much should I keep in an emergency fund?'},
+    {'icon': '📈', 'text': 'What are sensible ways to grow my savings?'},
   ];
 
   @override
@@ -63,19 +66,25 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
   }
 
   Future<void> _loadUserData() async {
+    if (_userId.isEmpty) return;
     _budgetSub = _db.budgetStream(_userId).listen((budget) {
       if (mounted) setState(() => _budget = budget);
     });
     _txSub = _db.transactionsStream(_userId).listen((txs) {
       if (mounted) setState(() => _transactions = txs);
     });
+    final user = await _db.getUser(_userId);
+    if (mounted && user != null) {
+      setState(() => _userModel = user);
+      await ref.read(currencyProvider.notifier).syncFromProfile(user.currency);
+    }
   }
 
   void _addWelcomeMessage() {
     _messages.add(
       ChatMessage(
         text:
-            'Hi! I\'m your PocketPlan AI Financial Advisor 👋\n\nI can help you with:\n• Analyzing your spending habits\n• Finding affordable places to eat nearby\n• Advising on purchases and investments\n• Suggesting ways to save more\n\nWhat would you like to know today?',
+            'Hi! I\'m your PocketPlan AI Financial Advisor 👋\n\nI can help you with:\n• Analyzing your monthly spending habits\n• Planning essential needs & groceries\n• Evaluating purchases against your budget\n• Suggesting practical ways to build savings\n\nWhat would you like to plan today?',
         isUser: false,
         timestamp: DateTime.now(),
         hasAnimated: true,
@@ -84,50 +93,63 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
     );
   }
 
-  String _buildSystemPrompt() {
-    final allowance = _budget?.monthlyAllowance ?? 0;
-    final spent = _budget?.totalSpent ?? 0;
+  Map<String, dynamic> _buildFinancialContextPayload(String currency) {
+    final allowance = _budget?.monthlyAllowance ?? 0.0;
+    final spent = _budget?.totalSpent ?? 0.0;
     final remaining = allowance - spent;
-    final commitmentSpent = _budget?.commitments.spent ?? 0;
-    final commitmentLimit = _budget?.commitments.limit ?? 0;
-    final spendingSpent = _budget?.spendings.spent ?? 0;
-    final spendingLimit = _budget?.spendings.limit ?? 0;
-    final savingsSpent = _budget?.savings.spent ?? 0;
-    final savingsLimit = _budget?.savings.limit ?? 0;
 
-    // Get recent transactions summary
-    final recentTx = _transactions
-        .take(10)
-        .map(
-          (t) =>
-              '${t.type == TransactionType.expense ? '-' : '+'}RM${t.amount.toStringAsFixed(2)} on ${t.category} (${t.description})',
-        )
-        .join(', ');
+    final currentMonth = BudgetCalculator.monthKey(DateTime.now());
+    final Map<String, double> catTotals = {};
+    for (final tx in _transactions) {
+      if (tx.type != TransactionType.expense) continue;
+      if (!BudgetCalculator.isInBudgetMonth(tx.date, currentMonth)) continue;
+      catTotals[tx.category] = (catTotals[tx.category] ?? 0.0) + tx.amount;
+    }
+    final topCats = catTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
-    return '''You are PocketPlan AI, a friendly and practical financial advisor for Malaysian university students. You speak in a friendly, conversational tone and give specific, actionable advice.
-
-USER'S FINANCIAL SNAPSHOT:
-- Monthly allowance: RM${allowance.toStringAsFixed(2)}
-- Total spent this month: RM${spent.toStringAsFixed(2)}
-- Remaining balance: RM${remaining.toStringAsFixed(2)}
-- Commitments: RM${commitmentSpent.toStringAsFixed(2)} / RM${commitmentLimit.toStringAsFixed(2)}
-- Spending: RM${spendingSpent.toStringAsFixed(2)} / RM${spendingLimit.toStringAsFixed(2)}
-- Savings: RM${savingsSpent.toStringAsFixed(2)} / RM${savingsLimit.toStringAsFixed(2)}
-- Recent transactions: $recentTx
-
-GUIDELINES:
-1. Always consider the user's actual financial data when giving advice
-2. Be specific — give real RM amounts, not vague suggestions
-3. For food questions, suggest affordable Malaysian options (mamak, food courts, pasar malam) with estimated prices
-4. For purchase decisions, calculate if they can afford it based on remaining budget
-5. For investments, suggest beginner-friendly Malaysian options (ASB, Tabung Haji, EPF, unit trust)
-6. If budget is tight, be honest but encouraging
-7. Keep responses concise — 2-4 short paragraphs maximum
-8. Use emojis sparingly for friendliness
-9. Always end with a practical next step or tip''';
+    return {
+      'currency': currency,
+      'lifeStage': _userModel?.lifeStage ?? 'general',
+      'monthlyIncome': allowance,
+      'totalSpent': spent,
+      'remaining': remaining,
+      'buckets': {
+        'commitments': {
+          'spent': _budget?.commitments.spent ?? 0.0,
+          'limit': _budget?.commitments.limit ?? 0.0,
+          'ratio': _budget?.commitmentRatio ?? 0.50,
+        },
+        'spendings': {
+          'spent': _budget?.spendings.spent ?? 0.0,
+          'limit': _budget?.spendings.limit ?? 0.0,
+          'ratio': _budget?.spendingRatio ?? 0.30,
+        },
+        'savings': {
+          'spent': _budget?.savings.spent ?? 0.0,
+          'limit': _budget?.savings.limit ?? 0.0,
+          'ratio': _budget?.savingsRatio ?? 0.20,
+        },
+      },
+      'topCategories': topCats
+          .take(6)
+          .map((e) => {'category': e.key, 'amount': e.value})
+          .toList(),
+      'recentTransactions': _transactions
+          .take(10)
+          .map(
+            (t) => {
+              'type': t.type == TransactionType.income ? 'income' : 'expense',
+              'category': t.category,
+              'amount': t.amount,
+              'description': t.description,
+            },
+          )
+          .toList(),
+    };
   }
 
-  Future<void> _sendMessage(String text) async {
+  Future<void> _sendMessage(String text, String currency) async {
     if (text.trim().isEmpty) return;
 
     final userMessage = ChatMessage(
@@ -184,11 +206,7 @@ GUIDELINES:
                 },
               )
               .toList(),
-          'systemInstruction': {
-            'parts': [
-              {'text': _buildSystemPrompt()},
-            ],
-          },
+          'context': _buildFinancialContextPayload(currency),
           'generationConfig': {'maxOutputTokens': 1024},
         }),
       );
@@ -254,6 +272,7 @@ GUIDELINES:
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final currency = ref.watch(currencyProvider);
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
@@ -266,14 +285,15 @@ GUIDELINES:
             child: Column(
               children: [
                 _buildHeader(),
-                _buildFinancialContext(),
+                _buildFinancialContext(currency),
                 Expanded(
                   child: _messages.length <= 1
-                      ? _buildSuggestionsView()
+                      ? _buildSuggestionsView(currency)
                       : _buildChatList(),
                 ),
                 if (_isLoading) _buildTypingIndicator(),
-                _buildInputBar(),
+                _buildDisclaimerBar(),
+                _buildInputBar(currency),
               ],
             ),
           ),
@@ -282,9 +302,6 @@ GUIDELINES:
     );
   }
 
-  // ─────────────────────────────────────────
-  // HEADER
-  // ─────────────────────────────────────────
   Widget _buildHeader() {
     final colors = context.colors;
     return Padding(
@@ -387,14 +404,12 @@ GUIDELINES:
     );
   }
 
-  // ─────────────────────────────────────────
-  // FINANCIAL CONTEXT BANNER
-  // ─────────────────────────────────────────
-  Widget _buildFinancialContext() {
+  Widget _buildFinancialContext(String currency) {
     final colors = context.colors;
     final remaining =
         (_budget?.monthlyAllowance ?? 0) - (_budget?.totalSpent ?? 0);
     final isLow = remaining < ((_budget?.monthlyAllowance ?? 1) * 0.2);
+    final formatted = CurrencyFormatter.format(remaining, code: currency);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -420,14 +435,16 @@ GUIDELINES:
             size: 16,
           ),
           const SizedBox(width: 8),
-          Text(
-            isLow
-                ? 'Low balance! RM${remaining.toStringAsFixed(2)} remaining'
-                : 'Balance: RM${remaining.toStringAsFixed(2)} remaining this month',
-            style: TextStyle(
-              color: isLow ? colors.danger : colors.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+          Expanded(
+            child: Text(
+              isLow
+                  ? 'Low balance! $formatted remaining this month'
+                  : 'Balance: $formatted remaining this month',
+              style: TextStyle(
+                color: isLow ? colors.danger : colors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -435,17 +452,13 @@ GUIDELINES:
     );
   }
 
-  // ─────────────────────────────────────────
-  // SUGGESTIONS VIEW
-  // ─────────────────────────────────────────
-  Widget _buildSuggestionsView() {
+  Widget _buildSuggestionsView(String currency) {
     final colors = context.colors;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome message
           _buildAIBubble(_messages.first),
           const SizedBox(height: 24),
           Text(
@@ -465,14 +478,13 @@ GUIDELINES:
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               childAspectRatio: 2.5,
-              // Desktop: fixed tile height (the ratio makes tiles huge when wide).
               mainAxisExtent: isDesktopLayout(context) ? 64 : null,
             ),
             itemCount: _suggestions.length,
             itemBuilder: (context, i) {
               final s = _suggestions[i];
               return GestureDetector(
-                onTap: () => _sendMessage(s['text']!),
+                onTap: () => _sendMessage(s['text']!, currency),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -510,9 +522,6 @@ GUIDELINES:
     );
   }
 
-  // ─────────────────────────────────────────
-  // CHAT LIST
-  // ─────────────────────────────────────────
   Widget _buildChatList() {
     return ListView.builder(
       controller: _scrollController,
@@ -619,18 +628,19 @@ GUIDELINES:
                       : colors.border,
                 ),
               ),
-              child: msg.isError || msg.hasAnimated
+              child: msg.isError
                   ? Text(
                       msg.text,
                       style: TextStyle(
-                        color: msg.isError ? colors.danger : colors.textPrimary,
+                        color: colors.danger,
                         fontSize: 14,
                         height: 1.5,
                       ),
                     )
-                  : TypewriterText(
-                      text: msg.text,
-                      onComplete: () => msg.hasAnimated = true,
+                  : SimpleMarkdownText(
+                      data: msg.text,
+                      accentColor: colors.accent,
+                      codeBackgroundColor: colors.surfaceAlt,
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontSize: 14,
@@ -644,9 +654,6 @@ GUIDELINES:
     );
   }
 
-  // ─────────────────────────────────────────
-  // TYPING INDICATOR
-  // ─────────────────────────────────────────
   Widget _buildTypingIndicator() {
     final colors = context.colors;
     return Padding(
@@ -717,10 +724,26 @@ GUIDELINES:
     );
   }
 
-  // ─────────────────────────────────────────
-  // INPUT BAR
-  // ─────────────────────────────────────────
-  Widget _buildInputBar() {
+  Widget _buildDisclaimerBar() {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 13, color: colors.textTertiary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'AI guidance is informational only and not licensed financial advice.',
+              style: TextStyle(color: colors.textTertiary, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputBar(String currency) {
     final colors = context.colors;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -761,7 +784,7 @@ GUIDELINES:
           GestureDetector(
             onTap: _isLoading
                 ? null
-                : () => _sendMessage(_messageController.text),
+                : () => _sendMessage(_messageController.text, currency),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 46,
@@ -788,9 +811,6 @@ GUIDELINES:
   }
 }
 
-// ─────────────────────────────────────────
-// CHAT MESSAGE MODEL
-// ─────────────────────────────────────────
 class ChatMessage {
   final String text;
   final bool isUser;
@@ -809,59 +829,4 @@ class ChatMessage {
     this.isWelcome = false,
     this.hasAnimated = false,
   });
-}
-
-class TypewriterText extends StatefulWidget {
-  final String text;
-  final TextStyle? style;
-  final Duration speed;
-  final VoidCallback? onComplete;
-
-  const TypewriterText({
-    super.key,
-    required this.text,
-    this.style,
-    this.speed = const Duration(milliseconds: 12),
-    this.onComplete,
-  });
-
-  @override
-  State<TypewriterText> createState() => _TypewriterTextState();
-}
-
-class _TypewriterTextState extends State<TypewriterText> {
-  String _displayedText = '';
-  int _charIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTyping();
-  }
-
-  void _startTyping() {
-    Future.doWhile(() async {
-      if (!mounted) return false;
-      await Future.delayed(widget.speed);
-      if (!mounted) return false;
-      if (_charIndex < widget.text.length) {
-        setState(() {
-          _charIndex++;
-          _displayedText = widget.text.substring(0, _charIndex);
-        });
-        if (_charIndex >= widget.text.length) {
-          widget.onComplete?.call();
-          return false;
-        }
-        return true;
-      }
-      widget.onComplete?.call();
-      return false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(_displayedText, style: widget.style);
-  }
 }

@@ -1,8 +1,58 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class BudgetSplitPreset {
+  final String name;
+  final String subtitle;
+  final double commitment;
+  final double spending;
+  final double savings;
+
+  const BudgetSplitPreset({
+    required this.name,
+    required this.subtitle,
+    required this.commitment,
+    required this.spending,
+    required this.savings,
+  });
+
+  String get ratioLabel =>
+      '${(commitment * 100).round()}/${(spending * 100).round()}/${(savings * 100).round()}';
+}
+
+const List<BudgetSplitPreset> kBudgetSplitPresets = [
+  BudgetSplitPreset(
+    name: 'Balanced',
+    subtitle: 'Classic split for steady monthly budgeting',
+    commitment: 0.50,
+    spending: 0.30,
+    savings: 0.20,
+  ),
+  BudgetSplitPreset(
+    name: 'Essentials Focus',
+    subtitle: 'Great for households, rent, or family bills',
+    commitment: 0.60,
+    spending: 0.20,
+    savings: 0.20,
+  ),
+  BudgetSplitPreset(
+    name: 'Tight Budget & Debt',
+    subtitle: 'Prioritizes essential needs and debt payoff',
+    commitment: 0.70,
+    spending: 0.20,
+    savings: 0.10,
+  ),
+  BudgetSplitPreset(
+    name: 'Aggressive Saver',
+    subtitle: 'Maximizes savings and long-term goals',
+    commitment: 0.50,
+    spending: 0.20,
+    savings: 0.30,
+  ),
+];
+
 class BucketData {
   final double limit; // Max allowed to spend (base + carried forward)
-  final double baseLimit; // Pure 50/30/20 share, excluding carry-forward
+  final double baseLimit; // Pure bucket share, excluding carry-forward
   final double spent; // How much spent so far
   final List<String> items; // User-defined sub-items
   final double carriedForward; // Leftover balance rolled in from last month
@@ -62,9 +112,12 @@ class BucketData {
 class BudgetModel {
   final String userId;
   final double monthlyAllowance;
-  final BucketData commitments; // 50%
-  final BucketData spendings; // 30%
-  final BucketData savings; // 20%
+  final BucketData commitments;
+  final BucketData spendings;
+  final BucketData savings;
+  final double commitmentRatio;
+  final double spendingRatio;
+  final double savingsRatio;
   final String month; // Format: "2026-04"
   final DateTime updatedAt;
 
@@ -74,6 +127,9 @@ class BudgetModel {
     required this.commitments,
     required this.spendings,
     required this.savings,
+    this.commitmentRatio = 0.50,
+    this.spendingRatio = 0.30,
+    this.savingsRatio = 0.20,
     required this.month,
     required this.updatedAt,
   });
@@ -96,32 +152,38 @@ class BudgetModel {
     return sum;
   }
 
-  // Create a default budget from allowance using 50/30/20
+  // Create a default budget from monthly income using configurable ratios
   factory BudgetModel.fromAllowance({
     required String userId,
     required double allowance,
     required String month,
+    double commitmentRatio = 0.50,
+    double spendingRatio = 0.30,
+    double savingsRatio = 0.20,
   }) {
     return BudgetModel(
       userId: userId,
       monthlyAllowance: allowance,
+      commitmentRatio: commitmentRatio,
+      spendingRatio: spendingRatio,
+      savingsRatio: savingsRatio,
       commitments: BucketData(
-        limit: allowance * 0.50,
-        baseLimit: allowance * 0.50,
+        limit: allowance * commitmentRatio,
+        baseLimit: allowance * commitmentRatio,
         spent: 0,
-        items: ['House / Rent', 'Bills & Utilities'],
+        items: ['Housing / Rent', 'Groceries', 'Bills & Utilities'],
       ),
       spendings: BucketData(
-        limit: allowance * 0.30,
-        baseLimit: allowance * 0.30,
+        limit: allowance * spendingRatio,
+        baseLimit: allowance * spendingRatio,
         spent: 0,
-        items: ['Food & Drinks', 'Shopping'],
+        items: ['Dining Out & Cafes', 'Shopping'],
       ),
       savings: BucketData(
-        limit: allowance * 0.20,
-        baseLimit: allowance * 0.20,
+        limit: allowance * savingsRatio,
+        baseLimit: allowance * savingsRatio,
         spent: 0,
-        items: ['Bank Savings'],
+        items: ['Emergency Fund', 'Bank Savings'],
       ),
       month: month,
       updatedAt: DateTime.now(),
@@ -136,6 +198,9 @@ class BudgetModel {
       commitments: BucketData.fromMap(data['commitments'] ?? {}),
       spendings: BucketData.fromMap(data['spendings'] ?? {}),
       savings: BucketData.fromMap(data['savings'] ?? {}),
+      commitmentRatio: (data['commitmentRatio'] ?? 0.50).toDouble(),
+      spendingRatio: (data['spendingRatio'] ?? 0.30).toDouble(),
+      savingsRatio: (data['savingsRatio'] ?? 0.20).toDouble(),
       month: data['month'] ?? '',
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as Timestamp).toDate()
@@ -149,6 +214,9 @@ class BudgetModel {
       'commitments': commitments.toMap(),
       'spendings': spendings.toMap(),
       'savings': savings.toMap(),
+      'commitmentRatio': commitmentRatio,
+      'spendingRatio': spendingRatio,
+      'savingsRatio': savingsRatio,
       'month': month,
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -160,6 +228,9 @@ class BudgetModel {
     BucketData? commitments,
     BucketData? spendings,
     BucketData? savings,
+    double? commitmentRatio,
+    double? spendingRatio,
+    double? savingsRatio,
     String? month,
     DateTime? updatedAt,
   }) {
@@ -169,6 +240,9 @@ class BudgetModel {
       commitments: commitments ?? this.commitments,
       spendings: spendings ?? this.spendings,
       savings: savings ?? this.savings,
+      commitmentRatio: commitmentRatio ?? this.commitmentRatio,
+      spendingRatio: spendingRatio ?? this.spendingRatio,
+      savingsRatio: savingsRatio ?? this.savingsRatio,
       month: month ?? this.month,
       updatedAt: updatedAt ?? this.updatedAt,
     );

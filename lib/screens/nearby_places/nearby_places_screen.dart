@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,15 +8,17 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:pocket_plan/core/services/location_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
 
-class NearbyPlacesScreen extends StatefulWidget {
+class NearbyPlacesScreen extends ConsumerStatefulWidget {
   const NearbyPlacesScreen({super.key});
 
   @override
-  State<NearbyPlacesScreen> createState() => _NearbyPlacesScreenState();
+  ConsumerState<NearbyPlacesScreen> createState() =>
+      _NearbyPlacesScreenState();
 }
 
-class _NearbyPlacesScreenState extends State<NearbyPlacesScreen>
+class _NearbyPlacesScreenState extends ConsumerState<NearbyPlacesScreen>
     with TickerProviderStateMixin {
   Position? _currentPosition;
   List<PlaceModel> _places = [];
@@ -177,6 +180,7 @@ out center;
               tags['brand'] ??
               _amenityLabelStatic(tags['amenity'] ?? tags['shop'] ?? 'place');
 
+          final currency = ref.read(currencyProvider);
           places.add(
             PlaceModel(
               name: name,
@@ -189,7 +193,10 @@ out center;
               phone: tags['phone'] ?? tags['contact:phone'] ?? '',
               priceRange:
                   tags['price_range'] ??
-                  _estimatePriceRange(tags['amenity'] ?? tags['shop'] ?? ''),
+                  _estimatePriceRange(
+                    tags['amenity'] ?? tags['shop'] ?? '',
+                    currency,
+                  ),
             ),
           );
         }
@@ -222,26 +229,44 @@ out center;
     }
   }
 
-  String _estimatePriceRange(String amenity) {
+  String _estimatePriceRange(String amenity, String currency) {
+    if (currency.toUpperCase() == 'MYR') {
+      switch (amenity) {
+        case 'fast_food':
+          return 'RM 5 – RM 15';
+        case 'cafe':
+          return 'RM 8 – RM 20';
+        case 'food_court':
+          return 'RM 5 – RM 12';
+        case 'restaurant':
+          return 'RM 10 – RM 30';
+        case 'bakery':
+          return 'RM 3 – RM 10';
+        case 'canteen':
+          return 'RM 3 – RM 10';
+        case 'convenience':
+          return 'RM 2 – RM 15';
+        case 'supermarket':
+          return 'RM 5 – RM 50';
+        default:
+          return 'RM 5 – RM 20';
+      }
+    }
+
     switch (amenity) {
-      case 'fast_food':
-        return 'RM 5 – RM 15';
-      case 'cafe':
-        return 'RM 8 – RM 20';
-      case 'food_court':
-        return 'RM 5 – RM 12';
-      case 'restaurant':
-        return 'RM 10 – RM 30';
       case 'bakery':
-        return 'RM 3 – RM 10';
       case 'canteen':
-        return 'RM 3 – RM 10';
+      case 'food_court':
+      case 'fast_food':
+        return 'Budget-Friendly (\$)';
       case 'convenience':
-        return 'RM 2 – RM 15';
       case 'supermarket':
-        return 'RM 5 – RM 50';
+        return 'Groceries & Essentials';
+      case 'cafe':
+      case 'restaurant':
+        return 'Moderate (\$\$)';
       default:
-        return 'RM 5 – RM 20';
+        return 'Budget-Friendly (\$)';
     }
   }
 
@@ -379,7 +404,7 @@ out center;
                   ),
                 ),
                 Text(
-                  'Affordable options near you',
+                  'Budget-friendly food & groceries near you',
                   style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
               ],
@@ -442,7 +467,7 @@ out center;
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.pocket_plan',
+              userAgentPackageName: 'com.kymee.pocketplan',
             ),
             MarkerLayer(
               markers: [

@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAkYRDZZWySa2NoOjer5HrS1CBzKIO9hKk',
-    appId: '1:556578707174:android:da7c98b8ead2843dfccd27',
+    appId: '1:556578707174:android:6dab6b0b2a18407afccd27',
     messagingSenderId: '556578707174',
     projectId: 'pocketplan-3926e',
     storageBucket: 'pocketplan-3926e.firebasestorage.app',
@@ -60,20 +60,20 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDbde0OhjUr0ZMW4xvxL8h46EsX88OsGFg',
-    appId: '1:556578707174:ios:75a10955fc20c1fffccd27',
+    appId: '1:556578707174:ios:ee9d349accd3870cfccd27',
     messagingSenderId: '556578707174',
     projectId: 'pocketplan-3926e',
     storageBucket: 'pocketplan-3926e.firebasestorage.app',
-    iosBundleId: 'com.example.pocketPlan',
+    iosBundleId: 'com.kymee.pocketplan',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDbde0OhjUr0ZMW4xvxL8h46EsX88OsGFg',
-    appId: '1:556578707174:ios:75a10955fc20c1fffccd27',
+    appId: '1:556578707174:ios:ee9d349accd3870cfccd27',
     messagingSenderId: '556578707174',
     projectId: 'pocketplan-3926e',
     storageBucket: 'pocketplan-3926e.firebasestorage.app',
-    iosBundleId: 'com.example.pocketPlan',
+    iosBundleId: 'com.kymee.pocketplan',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

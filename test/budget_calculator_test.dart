@@ -237,5 +237,37 @@ void main() {
       expect(reset.savings.limit, 350);
       expect(reset.savings.spent, 0);
     });
+
+    test('updateRatios normalizes ratios and income scales using custom split', () {
+      final budget = _makeBudget(allowance: 1000, spCarry: 50);
+      final updated = BudgetCalculator.updateRatios(
+        budget,
+        commitmentRatio: 60,
+        spendingRatio: 20,
+        savingsRatio: 20,
+      );
+
+      expect(updated.commitmentRatio, closeTo(0.60, 0.0001));
+      expect(updated.spendingRatio, closeTo(0.20, 0.0001));
+      expect(updated.savingsRatio, closeTo(0.20, 0.0001));
+      expect(updated.commitments.baseLimit, closeTo(600, 0.01));
+      expect(updated.spendings.baseLimit, closeTo(200, 0.01));
+      expect(updated.spendings.limit, closeTo(250, 0.01)); // preserves 50 carry
+      expect(updated.savings.baseLimit, closeTo(200, 0.01));
+
+      final income = _makeTx(type: TransactionType.income, amount: 500);
+      final afterIncome = BudgetCalculator.applyTransaction(updated, income);
+      expect(afterIncome.monthlyAllowance, 1500);
+      expect(afterIncome.commitments.limit, closeTo(900, 0.01));
+      expect(afterIncome.spendings.limit, closeTo(350, 0.01));
+      expect(afterIncome.savings.limit, closeTo(300, 0.01));
+
+      final afterAllowanceUpdate = BudgetCalculator.updateAllowance(
+        updated,
+        2000,
+      );
+      expect(afterAllowanceUpdate.commitments.baseLimit, closeTo(1200, 0.01));
+      expect(afterAllowanceUpdate.spendings.limit, closeTo(450, 0.01));
+    });
   });
 }

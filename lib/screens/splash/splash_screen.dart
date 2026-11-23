@@ -226,7 +226,7 @@ class _SplashScreenState extends State<SplashScreen>
                   FadeTransition(
                     opacity: _taglineOpacity,
                     child: Text(
-                      'Smart Finance for Students',
+                      'Smart Monthly Budgeting for Everyone',
                       style: TextStyle(
                         fontSize: 15,
                         color: colors.textSecondary,

@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/core/services/fuzzy_spending_predictor.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
 
-class AnalyticsScreen extends StatefulWidget {
+class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
 
   @override
-  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+  ConsumerState<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen>
+class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     with TickerProviderStateMixin {
   final DatabaseService _db = DatabaseService();
   late TabController _tabController;
@@ -48,6 +51,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final currency = ref.watch(currencyProvider);
     return Scaffold(
       backgroundColor: context.colors.background,
       body: SafeArea(
@@ -83,9 +87,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                         return TabBarView(
                           controller: _tabController,
                           children: [
-                            _buildOverviewTab(transactions),
-                            _buildCategoryTab(transactions),
-                            _buildPredictionTab(transactions, budget),
+                            _buildOverviewTab(transactions, currency),
+                            _buildCategoryTab(transactions, currency),
+                            _buildPredictionTab(
+                              transactions,
+                              budget,
+                              currency,
+                            ),
                           ],
                         );
                       },
@@ -170,7 +178,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   }
 
   // OVERVIEW TAB
-  Widget _buildOverviewTab(List<TransactionModel> transactions) {
+  Widget _buildOverviewTab(
+    List<TransactionModel> transactions,
+    String currency,
+  ) {
     final expenses = transactions
         .where((t) => t.type == TransactionType.expense)
         .toList();
@@ -194,7 +205,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 Expanded(
                   child: _summaryCard(
                     'Total Income',
-                    'RM ${totalIncome.toStringAsFixed(2)}',
+                    CurrencyFormatter.format(totalIncome, code: currency),
                     Icons.arrow_downward_rounded,
                     context.colors.success,
                   ),
@@ -203,7 +214,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 Expanded(
                   child: _summaryCard(
                     'Total Expense',
-                    'RM ${totalExpense.toStringAsFixed(2)}',
+                    CurrencyFormatter.format(totalExpense, code: currency),
                     Icons.arrow_upward_rounded,
                     context.colors.danger,
                   ),
@@ -212,7 +223,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 Expanded(
                   child: _summaryCard(
                     'Net Savings',
-                    'RM ${netSavings.toStringAsFixed(2)}',
+                    CurrencyFormatter.format(netSavings, code: currency),
                     Icons.savings_outlined,
                     netSavings >= 0
                         ? context.colors.accent
@@ -227,7 +238,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               children: [
                 Expanded(child: _buildBarChart(barData)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildMonthlyStats(transactions)),
+                Expanded(child: _buildMonthlyStats(transactions, currency)),
               ],
             ),
           ],
@@ -244,7 +255,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               Expanded(
                 child: _summaryCard(
                   'Total Income',
-                  'RM ${totalIncome.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(totalIncome, code: currency),
                   Icons.arrow_downward_rounded,
                   context.colors.success,
                 ),
@@ -253,7 +264,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               Expanded(
                 child: _summaryCard(
                   'Total Expense',
-                  'RM ${totalExpense.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(totalExpense, code: currency),
                   Icons.arrow_upward_rounded,
                   context.colors.danger,
                 ),
@@ -263,14 +274,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           const SizedBox(height: 12),
           _summaryCard(
             'Net Savings',
-            'RM ${netSavings.toStringAsFixed(2)}',
+            CurrencyFormatter.format(netSavings, code: currency),
             Icons.savings_outlined,
             netSavings >= 0 ? context.colors.accent : context.colors.danger,
           ),
           const SizedBox(height: 20),
           _buildBarChart(barData),
           const SizedBox(height: 20),
-          _buildMonthlyStats(transactions),
+          _buildMonthlyStats(transactions, currency),
         ],
       ),
     );
@@ -419,7 +430,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildMonthlyStats(List<TransactionModel> transactions) {
+  Widget _buildMonthlyStats(
+    List<TransactionModel> transactions,
+    String currency,
+  ) {
     final now = DateTime.now();
     final thisMonth = transactions.where(
       (t) => t.date.month == now.month && t.date.year == now.year,
@@ -477,7 +491,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'RM ${thisTotal.toStringAsFixed(2)}',
+                      CurrencyFormatter.format(thisTotal, code: currency),
                       style: TextStyle(
                         color: context.colors.textPrimary,
                         fontSize: 18,
@@ -537,7 +551,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'RM ${lastTotal.toStringAsFixed(2)}',
+                      CurrencyFormatter.format(lastTotal, code: currency),
                       style: TextStyle(
                         color: context.colors.textSecondary,
                         fontSize: 18,
@@ -555,7 +569,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   }
 
   // CATEGORY TAB
-  Widget _buildCategoryTab(List<TransactionModel> transactions) {
+  Widget _buildCategoryTab(
+    List<TransactionModel> transactions,
+    String currency,
+  ) {
     final expenses = transactions
         .where((t) => t.type == TransactionType.expense)
         .toList();
@@ -593,7 +610,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               flex: 3,
               child: Column(
                 children: sorted
-                    .map((e) => _buildCategoryRow(e.key, e.value, totalExpense))
+                    .map(
+                      (e) => _buildCategoryRow(
+                        e.key,
+                        e.value,
+                        totalExpense,
+                        currency,
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -608,7 +632,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         children: [
           _buildCategoryPieChart(sorted, totalExpense),
           const SizedBox(height: 20),
-          ...sorted.map((e) => _buildCategoryRow(e.key, e.value, totalExpense)),
+          ...sorted.map(
+            (e) => _buildCategoryRow(e.key, e.value, totalExpense, currency),
+          ),
         ],
       ),
     );
@@ -669,7 +695,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildCategoryRow(String category, double amount, double total) {
+  Widget _buildCategoryRow(
+    String category,
+    double amount,
+    double total,
+    String currency,
+  ) {
     final pct = total > 0 ? (amount / total * 100) : 0.0;
     final colors = [
       context.colors.accent,
@@ -720,7 +751,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'RM ${amount.toStringAsFixed(2)}',
+                    CurrencyFormatter.format(amount, code: currency),
                     style: TextStyle(
                       color: color,
                       fontSize: 14,
@@ -757,6 +788,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   Widget _buildPredictionTab(
     List<TransactionModel> transactions,
     BudgetModel? budget,
+    String currency,
   ) {
     final currentLimit = budget?.monthlyAllowance ?? 0.0;
     final nextMonth = FuzzySpendingPredictor.predictNextMonth(
@@ -787,12 +819,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildNextMonthCard(nextMonth),
+                  _buildNextMonthCard(nextMonth, currency),
                   const SizedBox(height: 20),
                   if (hasData) ...[
                     _buildCategoryBreakdown(
                       nextMonth,
                       currentLimit,
+                      currency,
                       budget: budget,
                     ),
                     const SizedBox(height: 20),
@@ -826,7 +859,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   _buildSixMonthChart(sixMonths),
                   const SizedBox(height: 16),
                   ...sixMonths.asMap().entries.map(
-                    (e) => _buildMonthForecastRow(e.key + 1, e.value),
+                    (e) => _buildMonthForecastRow(e.key + 1, e.value, currency),
                   ),
                 ],
               ),
@@ -841,12 +874,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildNextMonthCard(nextMonth),
+          _buildNextMonthCard(nextMonth, currency),
           const SizedBox(height: 20),
 
           // ── Category breakdown ──
           if (hasData) ...[
-            _buildCategoryBreakdown(nextMonth, currentLimit, budget: budget),
+            _buildCategoryBreakdown(
+              nextMonth,
+              currentLimit,
+              currency,
+              budget: budget,
+            ),
             const SizedBox(height: 20),
           ],
 
@@ -868,7 +906,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           _buildSixMonthChart(sixMonths),
           const SizedBox(height: 16),
           ...sixMonths.asMap().entries.map(
-            (e) => _buildMonthForecastRow(e.key + 1, e.value),
+            (e) => _buildMonthForecastRow(e.key + 1, e.value, currency),
           ),
           const SizedBox(height: 20),
           _buildFuzzyExplainerCard(nextMonth),
@@ -877,7 +915,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildNextMonthCard(FuzzyForecastResult result) {
+  Widget _buildNextMonthCard(FuzzyForecastResult result, String currency) {
     final isIncrease = result.adjustmentFactor > 0.02;
     final isDecrease = result.adjustmentFactor < -0.02;
     final color = isIncrease
@@ -941,7 +979,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'RM ${result.predictedAmount.toStringAsFixed(2)}',
+            CurrencyFormatter.format(result.predictedAmount, code: currency),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 34,
@@ -995,7 +1033,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   // ═══════════════════════════════════════════════════════════
   Widget _buildCategoryBreakdown(
     FuzzyForecastResult result,
-    double currentLimit, {
+    double currentLimit,
+    String currency, {
     BudgetModel? budget,
   }) {
     final commitmentLimit = budget?.commitments.limit ?? currentLimit * 0.5;
@@ -1025,29 +1064,32 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         const SizedBox(height: 12),
         _categoryForecastCard(
           icon: Icons.home_outlined,
-          label: 'Commitments',
+          label: 'Essential Needs',
           sublabel: pctLabel(commitmentLimit, '50% of budget'),
           predicted: result.predictedCommitments,
           limit: commitmentLimit,
           color: context.colors.accent,
+          currency: currency,
         ),
         const SizedBox(height: 10),
         _categoryForecastCard(
           icon: Icons.shopping_bag_outlined,
-          label: 'Spending',
+          label: 'Lifestyle & Wants',
           sublabel: pctLabel(spendingLimit, '30% of budget'),
           predicted: result.predictedSpending,
           limit: spendingLimit,
           color: context.colors.warning,
+          currency: currency,
         ),
         const SizedBox(height: 10),
         _categoryForecastCard(
           icon: Icons.savings_outlined,
-          label: 'Savings',
+          label: 'Savings & Goals',
           sublabel: pctLabel(savingsLimit, '20% of budget'),
           predicted: result.predictedSavings,
           limit: savingsLimit,
           color: context.colors.success,
+          currency: currency,
         ),
       ],
     );
@@ -1060,6 +1102,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     required double predicted,
     required double limit,
     required Color color,
+    required String currency,
   }) {
     final isOver = predicted > limit && limit > 0;
     final pct = limit > 0 ? (predicted / limit).clamp(0.0, 1.5) : 0.0;
@@ -1118,7 +1161,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   // ── Predicted amount ──
                   Text(
                     predicted > 0
-                        ? 'RM ${predicted.toStringAsFixed(2)}'
+                        ? CurrencyFormatter.format(predicted, code: currency)
                         : 'No data',
                     style: TextStyle(
                       color: isOver
@@ -1131,7 +1174,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   // ── Budget limit ──
                   if (limit > 0)
                     Text(
-                      'of RM ${limit.toStringAsFixed(2)} limit',
+                      'of ${CurrencyFormatter.format(limit, code: currency)} limit',
                       style: TextStyle(
                         color: context.colors.textTertiary,
                         fontSize: 11,
@@ -1162,8 +1205,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               children: [
                 Text(
                   isOver
-                      ? '⚠️ Predicted to exceed by RM ${diff.toStringAsFixed(2)}'
-                      : '✓ Within limit — RM ${diff.abs().toStringAsFixed(2)} to spare',
+                      ? '⚠️ Predicted to exceed by ${CurrencyFormatter.format(diff, code: currency)}'
+                      : '✓ Within limit — ${CurrencyFormatter.format(diff.abs(), code: currency)} to spare',
                   style: TextStyle(
                     color: isOver
                         ? context.colors.danger
@@ -1253,7 +1296,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildMonthForecastRow(int monthNum, FuzzyForecastResult result) {
+  Widget _buildMonthForecastRow(
+    int monthNum,
+    FuzzyForecastResult result,
+    String currency,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
@@ -1287,7 +1334,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'RM ${result.predictedAmount.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(
+                    result.predictedAmount,
+                    code: currency,
+                  ),
                   style: TextStyle(
                     color: context.colors.textPrimary,
                     fontSize: 14,

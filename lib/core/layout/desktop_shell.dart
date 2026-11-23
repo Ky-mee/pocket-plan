@@ -368,8 +368,8 @@ class _BrandPanel extends StatelessWidget {
   const _BrandPanel();
 
   static const _features = <(IconData, String)>[
-    (Icons.pie_chart_rounded, 'Smart 50/30/20 budgeting'),
-    (Icons.insights_rounded, 'Fuzzy-logic spending forecast'),
+    (Icons.pie_chart_rounded, 'Flexible monthly budget splits'),
+    (Icons.insights_rounded, 'Smart spending forecast'),
     (Icons.auto_awesome_rounded, 'AI financial advisor'),
     (Icons.restaurant_rounded, 'Affordable food spots near you'),
   ];
@@ -419,7 +419,7 @@ class _BrandPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 56),
                   const Text(
-                    'Plan your pocket money,\nthe smart way.',
+                    'Plan your monthly income,\nthe smart way.',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 40,
@@ -429,8 +429,8 @@ class _BrandPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Track spending, stay on budget and see where your '
-                    'money is heading, built for students.',
+                    'Track spending, stay on budget and plan for your '
+                    'essential needs at every stage of life.',
                     style: TextStyle(
                       color: Color(0xCCFFFFFF),
                       fontSize: 16,

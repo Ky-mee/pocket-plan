@@ -20,7 +20,12 @@ class DatabaseService {
   // ─────────────────────────────────────────
 
   // Create user profile after registration
-  Future<void> createUser(UserModel user) async {
+  Future<void> createUser(
+    UserModel user, {
+    double commitmentRatio = 0.50,
+    double spendingRatio = 0.30,
+    double savingsRatio = 0.20,
+  }) async {
     await _users.doc(user.uid).set(user.toFirestore());
 
     // Also create initial budget for current month
@@ -29,6 +34,9 @@ class DatabaseService {
       userId: user.uid,
       allowance: user.monthlyAllowance,
       month: month,
+      commitmentRatio: commitmentRatio,
+      spendingRatio: spendingRatio,
+      savingsRatio: savingsRatio,
     );
     await createOrUpdateBudget(user.uid, budget);
   }
@@ -53,8 +61,8 @@ class DatabaseService {
     await _users.doc(uid).update(fields);
   }
 
-  // Update monthly allowance while preserving current month's spent,
-  // carried-forward bonuses, and custom tracked items.
+  // Update monthly income while preserving current month's spent,
+  // carried-forward bonuses, split ratios, and custom tracked items.
   Future<void> updateAllowance(String uid, double newAllowance) async {
     await _db.runTransaction((txn) async {
       final budgetRef = _budgets.doc(uid);
@@ -82,6 +90,36 @@ class DatabaseService {
     });
   }
 
+  /// Deletes all Firestore records belonging to [uid] (transactions,
+  /// budget_history, preferences, budget, and user profile).
+  Future<void> deleteAllUserData(String uid) async {
+    final txSnap = await _transactions.where('userId', isEqualTo: uid).get();
+    final historySnap = await _users
+        .doc(uid)
+        .collection('budget_history')
+        .get();
+
+    final refsToDelete = <DocumentReference>[
+      ...txSnap.docs.map((d) => d.reference),
+      ...historySnap.docs.map((d) => d.reference),
+      _users.doc(uid).collection('preferences').doc('settings'),
+      _budgets.doc(uid),
+      _users.doc(uid),
+    ];
+
+    const chunkSize = 400;
+    for (int i = 0; i < refsToDelete.length; i += chunkSize) {
+      final batch = _db.batch();
+      final end = (i + chunkSize < refsToDelete.length)
+          ? i + chunkSize
+          : refsToDelete.length;
+      for (int j = i; j < end; j++) {
+        batch.delete(refsToDelete[j]);
+      }
+      await batch.commit();
+    }
+  }
+
   // ─────────────────────────────────────────
   // TRANSACTION operations
   // ─────────────────────────────────────────
@@ -103,11 +141,7 @@ class DatabaseService {
     });
 
     if (updatedBudget != null && transaction.type == TransactionType.expense) {
-      final prefs = await getPreferences(transaction.userId);
-      final notificationsEnabled = prefs['notificationsEnabled'] ?? true;
-      if (notificationsEnabled) {
-        await NotificationService().checkBudgetAlerts(updatedBudget);
-      }
+      await _maybeNotifyBudget(transaction.userId, updatedBudget);
     }
 
     return txRef.id;
@@ -132,12 +166,19 @@ class DatabaseService {
     });
 
     if (updatedBudget != null && newTx.type == TransactionType.expense) {
-      final prefs = await getPreferences(newTx.userId);
-      final notificationsEnabled = prefs['notificationsEnabled'] ?? true;
-      if (notificationsEnabled) {
-        await NotificationService().checkBudgetAlerts(updatedBudget);
-      }
+      await _maybeNotifyBudget(newTx.userId, updatedBudget);
     }
+  }
+
+  Future<void> _maybeNotifyBudget(String userId, BudgetModel budget) async {
+    final prefs = await getPreferences(userId);
+    final notificationsEnabled = prefs['notificationsEnabled'] ?? true;
+    if (!notificationsEnabled) return;
+    final user = await getUser(userId);
+    await NotificationService().checkBudgetAlerts(
+      budget,
+      currencyCode: user?.currency ?? 'MYR',
+    );
   }
 
   // Delete a transaction and atomically reverse its budget impact.
@@ -241,6 +282,29 @@ class DatabaseService {
         commitmentLimit: commitmentLimit,
         spendingLimit: spendingLimit,
         savingsLimit: savingsLimit,
+      );
+      txn.set(budgetRef, updated.toFirestore());
+    });
+  }
+
+  // Update budget split ratios and recalculate limits for the active month
+  Future<void> updateBudgetRatios({
+    required String userId,
+    required double commitmentRatio,
+    required double spendingRatio,
+    required double savingsRatio,
+  }) async {
+    await _db.runTransaction((txn) async {
+      final budgetRef = _budgets.doc(userId);
+      final budgetDoc = await txn.get(budgetRef);
+      if (!budgetDoc.exists) return;
+
+      final existing = BudgetModel.fromFirestore(budgetDoc);
+      final updated = BudgetCalculator.updateRatios(
+        existing,
+        commitmentRatio: commitmentRatio,
+        spendingRatio: spendingRatio,
+        savingsRatio: savingsRatio,
       );
       txn.set(budgetRef, updated.toFirestore());
     });

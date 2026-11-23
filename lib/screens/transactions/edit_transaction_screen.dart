@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 import 'package:pocket_plan/core/utils/amount_input.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
 
-class EditTransactionScreen extends StatefulWidget {
+class EditTransactionScreen extends ConsumerStatefulWidget {
   final TransactionModel transaction;
 
   const EditTransactionScreen({super.key, required this.transaction});
 
   @override
-  State<EditTransactionScreen> createState() => _EditTransactionScreenState();
+  ConsumerState<EditTransactionScreen> createState() =>
+      _EditTransactionScreenState();
 }
 
-class _EditTransactionScreenState extends State<EditTransactionScreen>
+class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final DatabaseService _db = DatabaseService();
@@ -167,6 +171,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final currency = ref.watch(currencyProvider);
     final isIncome = _type == TransactionType.income;
     return CallbackShortcuts(
       bindings: {
@@ -192,7 +197,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
                           const SizedBox(height: 20),
                           _buildTypeToggle(),
                           const SizedBox(height: 24),
-                          _buildAmountField(),
+                          _buildAmountField(currency),
                           const SizedBox(height: 20),
                           if (isIncome)
                             _buildIncomeSourceSelector()
@@ -346,8 +351,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
     );
   }
 
-  Widget _buildAmountField() {
+  Widget _buildAmountField(String currency) {
     final colors = context.colors;
+    final info = CurrencyFormatter.of(currency);
     final color = _type == TransactionType.expense
         ? colors.danger
         : colors.success;
@@ -355,7 +361,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Amount (RM)',
+          'Amount (${info.code})',
           style: TextStyle(
             color: colors.textSecondary,
             fontSize: 13,
@@ -387,7 +393,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
               fontSize: 28,
               fontWeight: FontWeight.w700,
             ),
-            prefixText: 'RM ',
+            prefixText: '${info.symbol} ',
             prefixStyle: TextStyle(
               color: color.withOpacity(0.6),
               fontSize: 20,
@@ -477,11 +483,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
           children: [
             _bucketChip(
               BudgetCategory.commitment,
-              'Commitments',
+              'Essentials',
               colors.accent,
             ),
             const SizedBox(width: 8),
-            _bucketChip(BudgetCategory.spending, 'Spending', colors.success),
+            _bucketChip(BudgetCategory.spending, 'Lifestyle', colors.success),
             const SizedBox(width: 8),
             _bucketChip(BudgetCategory.savings, 'Savings', colors.warning),
           ],
@@ -589,7 +595,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen>
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (_) => _submit(),
           decoration: InputDecoration(
-            hintText: 'e.g. Lunch at Pak Ali, Monthly rent...',
+            hintText: 'e.g. Weekly groceries, lunch, utility bill...',
             hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
             prefixIcon: Padding(
               padding: const EdgeInsets.only(bottom: 24),

@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="pocket_plan"
+        android:label="PocketPlan"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

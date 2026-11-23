@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 
 class NotificationService {
@@ -64,22 +65,25 @@ class NotificationService {
   }
 
   // Check budget and fire alert if any bucket is exceeded
-  Future<void> checkBudgetAlerts(BudgetModel budget) async {
+  Future<void> checkBudgetAlerts(
+    BudgetModel budget, {
+    String currencyCode = 'MYR',
+  }) async {
     if (budget.commitments.isExceeded) {
       await showLocalNotification(
         id: 1,
-        title: '⚠️ Commitments Budget Exceeded',
+        title: '⚠️ Essential Needs Budget Exceeded',
         body:
-            'You have spent RM${budget.commitments.spent.toStringAsFixed(2)} of your RM${budget.commitments.limit.toStringAsFixed(2)} commitments budget.',
+            'You have spent ${CurrencyFormatter.format(budget.commitments.spent, code: currencyCode)} of your ${CurrencyFormatter.format(budget.commitments.limit, code: currencyCode)} essential needs budget.',
       );
     }
 
     if (budget.spendings.isExceeded) {
       await showLocalNotification(
         id: 2,
-        title: '⚠️ Spending Budget Exceeded',
+        title: '⚠️ Lifestyle Budget Exceeded',
         body:
-            'You have spent RM${budget.spendings.spent.toStringAsFixed(2)} of your RM${budget.spendings.limit.toStringAsFixed(2)} spending budget.',
+            'You have spent ${CurrencyFormatter.format(budget.spendings.spent, code: currencyCode)} of your ${CurrencyFormatter.format(budget.spendings.limit, code: currencyCode)} lifestyle budget.',
       );
     }
 
@@ -88,9 +92,9 @@ class NotificationService {
       await showLocalNotification(
         id: 3,
         title:
-            '📊 Spending Budget at ${budget.spendings.percentageUsed.toStringAsFixed(0)}%',
+            '📊 Lifestyle Budget at ${budget.spendings.percentageUsed.toStringAsFixed(0)}%',
         body:
-            'You are approaching your spending limit. RM${budget.spendings.remaining.toStringAsFixed(2)} remaining.',
+            'You are approaching your lifestyle limit. ${CurrencyFormatter.format(budget.spendings.remaining, code: currencyCode)} remaining.',
       );
     }
   }

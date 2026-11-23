@@ -25,6 +25,11 @@ class AuthService {
     required String email,
     required String password,
     required double monthlyAllowance,
+    String currency = 'MYR',
+    String lifeStage = 'general',
+    double commitmentRatio = 0.50,
+    double spendingRatio = 0.30,
+    double savingsRatio = 0.20,
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
@@ -40,9 +45,16 @@ class AuthService {
       name: name,
       email: email,
       monthlyAllowance: monthlyAllowance,
+      currency: currency,
+      lifeStage: lifeStage,
       createdAt: DateTime.now(),
     );
-    await _db.createUser(userModel);
+    await _db.createUser(
+      userModel,
+      commitmentRatio: commitmentRatio,
+      spendingRatio: spendingRatio,
+      savingsRatio: savingsRatio,
+    );
 
     return credential;
   }
@@ -63,6 +75,32 @@ class AuthService {
 
   Future<void> resetPassword(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
+  }
+
+  /// Re-authenticates the user, deletes all Firestore user data, clears local
+  /// biometric state, and permanently deletes the Firebase Auth account.
+  Future<void> deleteAccount({required String password}) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'No signed-in user found.',
+      );
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: password,
+    );
+    await user.reauthenticateWithCredential(credential);
+
+    final uid = user.uid;
+    await _db.deleteAllUserData(uid);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('biometric_enabled_$uid');
+
+    await user.delete();
   }
 
   // ─────────────────────────────────────────

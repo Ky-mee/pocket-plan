@@ -1,11 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class UserLifeStage {
+  static const Map<String, String> labels = {
+    'general': 'General / Prefer not to say',
+    'student': 'Student',
+    'young_adult': 'Young Adult',
+    'working_adult': 'Working Adult',
+    'family': 'Family / Household',
+    'retiree': 'Retiree / Senior',
+  };
+
+  static String labelOf(String? key) => labels[key] ?? labels['general']!;
+}
+
 class UserModel {
   final String uid;
   final String name;
   final String email;
   final double monthlyAllowance;
   final String currency;
+  final String lifeStage;
   final bool biometricEnabled;
   final DateTime createdAt;
 
@@ -15,6 +29,7 @@ class UserModel {
     required this.email,
     required this.monthlyAllowance,
     this.currency = 'MYR',
+    this.lifeStage = 'general',
     this.biometricEnabled = false,
     required this.createdAt,
   });
@@ -28,8 +43,11 @@ class UserModel {
       email: data['email'] ?? '',
       monthlyAllowance: (data['monthlyAllowance'] ?? 0.0).toDouble(),
       currency: data['currency'] ?? 'MYR',
+      lifeStage: data['lifeStage'] ?? 'general',
       biometricEnabled: data['biometricEnabled'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: data['createdAt'] != null
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
     );
   }
 
@@ -40,6 +58,7 @@ class UserModel {
       'email': email,
       'monthlyAllowance': monthlyAllowance,
       'currency': currency,
+      'lifeStage': lifeStage,
       'biometricEnabled': biometricEnabled,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -51,6 +70,7 @@ class UserModel {
     String? email,
     double? monthlyAllowance,
     String? currency,
+    String? lifeStage,
     bool? biometricEnabled,
   }) {
     return UserModel(
@@ -59,6 +79,7 @@ class UserModel {
       email: email ?? this.email,
       monthlyAllowance: monthlyAllowance ?? this.monthlyAllowance,
       currency: currency ?? this.currency,
+      lifeStage: lifeStage ?? this.lifeStage,
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
       createdAt: createdAt,
     );

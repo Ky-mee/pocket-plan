@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 import 'package:pocket_plan/core/utils/amount_input.dart';
 
-/// Big "RM 0.00" amount input. Uses the device's own keyboard (numeric
+/// Big currency amount input. Uses the device's own keyboard (numeric
 /// keyboard on phones, normal keyboard on desktop). Enter submits.
 class AmountField extends StatelessWidget {
   final TextEditingController controller;
   final Color color;
+  final String currencySymbol;
   final bool autofocus;
   final ValueChanged<String> onChanged;
   final VoidCallback onSubmitted;
@@ -17,6 +18,7 @@ class AmountField extends StatelessWidget {
     required this.color,
     required this.onChanged,
     required this.onSubmitted,
+    this.currencySymbol = 'RM',
     this.autofocus = false,
   });
 
@@ -42,7 +44,7 @@ class AmountField extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'RM ',
+                '$currencySymbol ',
                 style: TextStyle(
                   color: color.withOpacity(0.7),
                   fontSize: 24,

@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_plan/core/layout/desktop_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
 import 'package:pocket_plan/widgets/shimmer_widgets.dart';
 import 'package:pocket_plan/screens/transactions/edit_transaction_screen.dart';
 import 'package:pocket_plan/core/services/export_service.dart';
 import 'package:pocket_plan/core/themes/app_colors.dart';
 
-class TransactionListScreen extends StatefulWidget {
+class TransactionListScreen extends ConsumerStatefulWidget {
   const TransactionListScreen({super.key});
 
   @override
-  State<TransactionListScreen> createState() => _TransactionListScreenState();
+  ConsumerState<TransactionListScreen> createState() =>
+      _TransactionListScreenState();
 }
 
-class _TransactionListScreenState extends State<TransactionListScreen>
+class _TransactionListScreenState extends ConsumerState<TransactionListScreen>
     with TickerProviderStateMixin {
   final DatabaseService _db = DatabaseService();
   final TextEditingController _searchController = TextEditingController();
@@ -95,13 +99,14 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final currency = ref.watch(currencyProvider);
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
         child: isDesktopLayout(context)
             ? Column(
                 children: [
-                  _buildHeader(),
+                  _buildHeader(currency),
                   // Search and type tabs share one row on desktop.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,20 +116,18 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                     ],
                   ),
                   _buildFilterChips(),
-                  Expanded(child: _buildTransactionStream()),
+                  Expanded(child: _buildTransactionStream(currency)),
                 ],
               )
             : Column(
-          children: [
-            _buildHeader(),
-            _buildSearchBar(),
-            _buildTabBar(),
-            _buildFilterChips(),
-            Expanded(
-              child: _buildTransactionStream(),
-            ),
-          ],
-        ),
+                children: [
+                  _buildHeader(currency),
+                  _buildSearchBar(),
+                  _buildTabBar(),
+                  _buildFilterChips(),
+                  Expanded(child: _buildTransactionStream(currency)),
+                ],
+              ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context).pushNamed('/add-transaction'),
@@ -134,7 +137,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     );
   }
 
-  Widget _buildTransactionStream() {
+  Widget _buildTransactionStream(String currency) {
     final colors = context.colors;
     return StreamBuilder<List<TransactionModel>>(
                 stream: _db.transactionsStream(_userId),
@@ -188,9 +191,18 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 16),
-                                    _buildDateHeader(dateKey, dayTotal),
+                                    _buildDateHeader(
+                                      dateKey,
+                                      dayTotal,
+                                      currency,
+                                    ),
                                     const SizedBox(height: 8),
-                                    ...txs.map((tx) => _buildTransactionCard(tx)),
+                                    ...txs.map(
+                                      (tx) => _buildTransactionCard(
+                                        tx,
+                                        currency,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               );
@@ -224,9 +236,11 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 16),
-                            _buildDateHeader(dateKey, dayTotal),
+                            _buildDateHeader(dateKey, dayTotal, currency),
                             const SizedBox(height: 8),
-                            ...txs.map((tx) => _buildTransactionCard(tx)),
+                            ...txs.map(
+                              (tx) => _buildTransactionCard(tx, currency),
+                            ),
                           ],
                         );
                       },
@@ -287,7 +301,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String currency) {
     final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -320,7 +334,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
           ),
           const Spacer(),
           GestureDetector(
-            onTap: () => _showExportDialog(),
+            onTap: () => _showExportDialog(currency),
             child: Container(
               width: 40,
               height: 40,
@@ -438,7 +452,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
           ),
           const SizedBox(width: 8),
           _filterChip(
-            'Commitments',
+            'Essentials',
             _filterCategory == BudgetCategory.commitment,
             () => setState(
               () => _filterCategory == BudgetCategory.commitment
@@ -449,7 +463,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
           ),
           const SizedBox(width: 8),
           _filterChip(
-            'Spending',
+            'Lifestyle',
             _filterCategory == BudgetCategory.spending,
             () => setState(
               () => _filterCategory == BudgetCategory.spending
@@ -505,7 +519,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
     );
   }
 
-  Widget _buildDateHeader(String dateKey, double dayTotal) {
+  Widget _buildDateHeader(String dateKey, double dayTotal, String currency) {
     final colors = context.colors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -519,7 +533,11 @@ class _TransactionListScreenState extends State<TransactionListScreen>
           ),
         ),
         Text(
-          '${dayTotal >= 0 ? '+' : ''}RM ${dayTotal.toStringAsFixed(2)}',
+          CurrencyFormatter.signed(
+            dayTotal.abs(),
+            isExpense: dayTotal < 0,
+            code: currency,
+          ),
           style: TextStyle(
             color: dayTotal >= 0 ? colors.success : colors.danger,
             fontSize: 13,
@@ -573,7 +591,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
         emoji: '💰',
         title: 'No income recorded',
         subtitle:
-            'Add your allowance or salary\nto start tracking your income.',
+            'Add your salary or other income\nto start tracking your budget.',
         buttonLabel: 'Add Income',
         onButtonTap: () => Navigator.of(
           context,
@@ -585,13 +603,13 @@ class _TransactionListScreenState extends State<TransactionListScreen>
       emoji: '📊',
       title: 'No transactions yet',
       subtitle:
-          'Start by adding your first transaction.\nTrack every ringgit you spend or earn.',
+          'Start by adding your first transaction.\nTrack every expense and income easily.',
       buttonLabel: 'Add Transaction',
       onButtonTap: () => Navigator.of(context).pushNamed('/add-transaction'),
     );
   }
 
-  Widget _buildTransactionCard(TransactionModel tx) {
+  Widget _buildTransactionCard(TransactionModel tx, String currency) {
     final colors = context.colors;
     final isExpense = tx.type == TransactionType.expense;
     final categoryColor = _categoryColor(tx.budgetCategory);
@@ -732,7 +750,11 @@ class _TransactionListScreenState extends State<TransactionListScreen>
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${isExpense ? '-' : '+'}RM ${tx.amount.toStringAsFixed(2)}',
+                  CurrencyFormatter.signed(
+                    tx.amount,
+                    isExpense: isExpense,
+                    code: currency,
+                  ),
                   style: TextStyle(
                     color: isExpense ? colors.danger : colors.success,
                     fontSize: 15,
@@ -747,31 +769,41 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(
+                    IconButton(
+                      tooltip: 'Edit transaction',
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) =>
                               EditTransactionScreen(transaction: tx),
                         ),
                       ),
-                      child: Icon(
+                      icon: Icon(
                         Icons.edit_outlined,
                         color: colors.textTertiary,
-                        size: 16,
+                        size: 18,
                       ),
                     ),
                     // Desktop has no swipe gesture: explicit delete button.
-                    if (isDesktopLayout(context)) ...[
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () => _deleteWithConfirm(tx),
-                        child: Icon(
+                    if (isDesktopLayout(context))
+                      IconButton(
+                        tooltip: 'Delete transaction',
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onPressed: () => _deleteWithConfirm(tx),
+                        icon: Icon(
                           Icons.delete_outline_rounded,
                           color: colors.danger,
-                          size: 16,
+                          size: 18,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -797,38 +829,58 @@ class _TransactionListScreenState extends State<TransactionListScreen>
   IconData _categoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'food & drinks':
+      case 'dining out & cafes':
         return Icons.restaurant_outlined;
+      case 'groceries':
+        return Icons.local_grocery_store_outlined;
       case 'shopping':
         return Icons.shopping_bag_outlined;
       case 'house / rent':
+      case 'housing / rent / mortgage':
         return Icons.home_outlined;
       case 'car / transport':
+      case 'transport & fuel':
         return Icons.directions_car_outlined;
       case 'bills & utilities':
         return Icons.receipt_outlined;
       case 'insurance':
         return Icons.shield_outlined;
       case 'education loan (ptptn)':
+      case 'education fund':
         return Icons.school_outlined;
+      case 'debt & loans':
+        return Icons.account_balance_outlined;
+      case 'family & childcare':
+        return Icons.family_restroom_outlined;
       case 'entertainment':
         return Icons.movie_outlined;
+      case 'subscriptions':
+        return Icons.subscriptions_outlined;
       case 'health':
+      case 'healthcare & medical':
         return Icons.favorite_outline;
       case 'asb':
       case 'bank savings':
       case 'gold':
+      case 'gold & assets':
       case 'investment':
+      case 'investments':
+      case 'emergency fund':
+      case 'retirement (epf / 401k)':
         return Icons.savings_outlined;
       case 'travel':
+      case 'travel & leisure':
         return Icons.flight_outlined;
       case 'personal care':
         return Icons.face_outlined;
+      case 'gifts & donations':
+        return Icons.card_giftcard_outlined;
       default:
         return Icons.attach_money_rounded;
     }
   }
 
-  void _showExportDialog() {
+  void _showExportDialog(String currency) {
     final colors = context.colors;
     showModalBottomSheet(
       context: context,
@@ -872,6 +924,7 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                   await ExportService.exportToPDF(
                     snap,
                     budget?.monthlyAllowance ?? 0,
+                    currencyCode: currency,
                   );
                 } catch (_) {
                   if (mounted) {
@@ -896,7 +949,10 @@ class _TransactionListScreenState extends State<TransactionListScreen>
                 Navigator.pop(ctx);
                 try {
                   final snap = await _db.transactionsStream(_userId).first;
-                  await ExportService.exportToCSV(snap);
+                  await ExportService.exportToCSV(
+                    snap,
+                    currencyCode: currency,
+                  );
                 } catch (_) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

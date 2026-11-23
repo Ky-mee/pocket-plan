@@ -1,13 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pocket_plan/core/layout/desktop_shell.dart';
+import 'package:pocket_plan/core/services/budget_reset_service.dart';
 import 'package:pocket_plan/core/services/database_service.dart';
+import 'package:pocket_plan/core/themes/app_colors.dart';
+import 'package:pocket_plan/core/utils/currency_formatter.dart';
 import 'package:pocket_plan/models/budget_model.dart';
 import 'package:pocket_plan/models/transaction_model.dart';
-import 'package:pocket_plan/core/services/budget_reset_service.dart';
-import 'package:pocket_plan/core/themes/app_colors.dart';
-import 'package:pocket_plan/core/layout/desktop_shell.dart';
+import 'package:pocket_plan/providers/currency_provider.dart';
 import 'package:pocket_plan/widgets/shimmer_widgets.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -43,7 +45,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         );
     _entryController.forward();
 
-    _checkBudgetReset(); // ← add this
+    _checkBudgetReset();
+    _syncCurrencyFromProfile();
+  }
+
+  Future<void> _syncCurrencyFromProfile() async {
+    if (_userId.isEmpty) return;
+    final user = await _db.getUser(_userId);
+    if (mounted && user != null) {
+      await ref.read(currencyProvider.notifier).syncFromProfile(user.currency);
+    }
   }
 
   Future<void> _checkBudgetReset() async {
@@ -67,6 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final currency = ref.watch(currencyProvider);
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
@@ -93,7 +105,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     !budgetSnap.hasData) {
                   return isDesktopLayout(context)
                       ? Center(
-                          child: CircularProgressIndicator(color: colors.accent),
+                          child: CircularProgressIndicator(
+                            color: colors.accent,
+                          ),
                         )
                       : const HomeShimmer();
                 }
@@ -104,7 +118,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     final transactions = txSnap.data ?? [];
                     if (isDesktopLayout(context)) {
                       return SingleChildScrollView(
-                        child: _buildDesktopBody(budget, transactions),
+                        child: _buildDesktopBody(
+                          budget,
+                          transactions,
+                          currency,
+                        ),
                       );
                     }
                     return CustomScrollView(
@@ -112,9 +130,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         SliverToBoxAdapter(
                           child: Column(
                             children: [
-                              _buildTopBar(budget),
-                              _buildBalanceCard(budget),
-                              _buildBudgetRing(budget),
+                              _buildTopBar(budget, currency),
+                              _buildBalanceCard(budget, currency),
+                              _buildBudgetRing(budget, currency),
                               _buildQuickActions(),
                               if (txSnap.hasError)
                                 Padding(
@@ -127,7 +145,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   ),
                                 )
                               else
-                                _buildRecentTransactions(transactions),
+                                _buildRecentTransactions(
+                                  transactions,
+                                  currency,
+                                ),
                               const SizedBox(height: 100),
                             ],
                           ),
@@ -141,35 +162,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ),
-      // Desktop: the sidebar replaces the bottom bar (and its docked FAB).
       bottomNavigationBar: isDesktopLayout(context) ? null : _buildBottomNav(),
       floatingActionButton: isDesktopLayout(context) ? null : _buildFAB(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
-  // ─────────────────────────────────────────
-  // DESKTOP BODY — two-column dashboard
-  // ─────────────────────────────────────────
   Widget _buildDesktopBody(
     BudgetModel? budget,
     List<TransactionModel> transactions,
+    String currency,
   ) {
     return Column(
       children: [
-        _buildTopBar(budget),
+        _buildTopBar(budget, currency),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 3, child: _buildBalanceCard(budget)),
-            Expanded(flex: 2, child: _buildBudgetRing(budget)),
+            Expanded(flex: 3, child: _buildBalanceCard(budget, currency)),
+            Expanded(flex: 2, child: _buildBudgetRing(budget, currency)),
           ],
         ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 3, child: _buildRecentTransactions(transactions)),
+            Expanded(
+              flex: 3,
+              child: _buildRecentTransactions(transactions, currency),
+            ),
             Expanded(flex: 2, child: _buildQuickActions()),
           ],
         ),
@@ -178,9 +199,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // TOP BAR
-  // ─────────────────────────────────────────
   bool _hasBudgetAlerts(BudgetModel? budget) {
     if (budget == null) return false;
     return budget.isAnyExceeded ||
@@ -188,7 +206,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         budget.spendings.percentageUsed >= 80;
   }
 
-  Widget _buildTopBar(BudgetModel? budget) {
+  Widget _buildTopBar(BudgetModel? budget, String currency) {
     final colors = context.colors;
     final user = FirebaseAuth.instance.currentUser;
     final name = user?.displayName?.split(' ').first ?? 'there';
@@ -224,9 +242,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           Row(
             children: [
-              // Notification bell
               GestureDetector(
-                onTap: () => _showBudgetAlertsSheet(budget),
+                onTap: () => _showBudgetAlertsSheet(budget, currency),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -260,7 +277,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
               const SizedBox(width: 10),
-              // Avatar
               GestureDetector(
                 onTap: () => Navigator.of(context).pushNamed('/settings'),
                 child: Container(
@@ -293,10 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // BALANCE CARD
-  // ─────────────────────────────────────────
-  Widget _buildBalanceCard(BudgetModel? budget) {
+  Widget _buildBalanceCard(BudgetModel? budget, String currency) {
     final colors = context.colors;
     final allowance = budget?.monthlyAllowance ?? 0;
     final spent = budget?.totalSpent ?? 0;
@@ -357,7 +370,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            'RM ${remaining.toStringAsFixed(2)}',
+            CurrencyFormatter.format(remaining, code: currency),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 36,
@@ -367,11 +380,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            'of RM ${allowance.toStringAsFixed(2)} allowance',
+            'of ${CurrencyFormatter.format(allowance, code: currency)} monthly income',
             style: const TextStyle(color: Colors.white60, fontSize: 13),
           ),
           const SizedBox(height: 20),
-          // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
@@ -388,7 +400,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Spent: RM ${spent.toStringAsFixed(2)}',
+                'Spent: ${CurrencyFormatter.format(spent, code: currency)}',
                 style: const TextStyle(color: Colors.white60, fontSize: 12),
               ),
               Text(
@@ -406,11 +418,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // BUDGET RING (50/30/20)
-  // ─────────────────────────────────────────
-  Widget _buildBudgetRing(BudgetModel? budget) {
+  Widget _buildBudgetRing(BudgetModel? budget, String currency) {
     final colors = context.colors;
+    final cPct = ((budget?.commitmentRatio ?? 0.50) * 100).round();
+    final spPct = ((budget?.spendingRatio ?? 0.30) * 100).round();
+    final svPct = ((budget?.savingsRatio ?? 0.20) * 100).round();
+
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       padding: const EdgeInsets.all(20),
@@ -426,7 +439,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '50 / 30 / 20 Budget',
+                'Budget Split ($cPct/$spPct/$svPct)',
                 style: TextStyle(
                   color: colors.textPrimary,
                   fontSize: 15,
@@ -449,7 +462,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           const SizedBox(height: 20),
           Row(
             children: [
-              // Donut chart
               SizedBox(
                 width: 120,
                 height: 120,
@@ -488,13 +500,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
               ),
               const SizedBox(width: 20),
-              // Legend
               Expanded(
                 child: Column(
                   children: [
                     _budgetLegendRow(
-                      label: 'Commitments',
-                      percent: '50%',
+                      label: 'Essential Needs',
+                      currency: currency,
                       spent: budget?.commitments.spent ?? 0,
                       limit: budget?.commitments.limit ?? 0,
                       color: colors.accent,
@@ -502,8 +513,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                     const SizedBox(height: 12),
                     _budgetLegendRow(
-                      label: 'Spending',
-                      percent: '30%',
+                      label: 'Lifestyle',
+                      currency: currency,
                       spent: budget?.spendings.spent ?? 0,
                       limit: budget?.spendings.limit ?? 0,
                       color: colors.success,
@@ -512,7 +523,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     const SizedBox(height: 12),
                     _budgetLegendRow(
                       label: 'Savings',
-                      percent: '20%',
+                      currency: currency,
                       spent: budget?.savings.spent ?? 0,
                       limit: budget?.savings.limit ?? 0,
                       color: colors.warning,
@@ -530,7 +541,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _budgetLegendRow({
     required String label,
-    required String percent,
+    required String currency,
     required double spent,
     required double limit,
     required Color color,
@@ -570,7 +581,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     size: 12,
                   ),
                 Text(
-                  'RM ${spent.toStringAsFixed(0)}/${limit.toStringAsFixed(0)}',
+                  '${CurrencyFormatter.format(spent, code: currency, decimals: 0)}/${CurrencyFormatter.format(limit, code: currency, decimals: 0)}',
                   style: TextStyle(
                     color: isExceeded ? colors.danger : colors.textPrimary,
                     fontSize: 11,
@@ -597,9 +608,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // QUICK ACTIONS
-  // ─────────────────────────────────────────
   Widget _buildQuickActions() {
     final colors = context.colors;
     return Padding(
@@ -706,10 +714,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // RECENT TRANSACTIONS
-  // ─────────────────────────────────────────
-  Widget _buildRecentTransactions(List<TransactionModel> transactions) {
+  Widget _buildRecentTransactions(
+    List<TransactionModel> transactions,
+    String currency,
+  ) {
     final colors = context.colors;
     final recent = transactions.take(5).toList();
     return Padding(
@@ -745,7 +753,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           if (recent.isEmpty)
             _buildEmptyTransactions()
           else
-            ...recent.map((tx) => _transactionItem(tx)),
+            ...recent.map((tx) => _transactionItem(tx, currency)),
         ],
       ),
     );
@@ -787,7 +795,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _transactionItem(TransactionModel tx) {
+  Widget _transactionItem(TransactionModel tx, String currency) {
     final colors = context.colors;
     final isExpense = tx.type == TransactionType.expense;
     final categoryColor = _categoryColor(tx.budgetCategory);
@@ -839,7 +847,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${isExpense ? '-' : '+'}RM ${tx.amount.toStringAsFixed(2)}',
+                CurrencyFormatter.signed(
+                  tx.amount,
+                  isExpense: isExpense,
+                  code: currency,
+                ),
                 style: TextStyle(
                   color: isExpense ? colors.danger : colors.success,
                   fontSize: 14,
@@ -858,9 +870,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // BOTTOM NAV
-  // ─────────────────────────────────────────
   Widget _buildBottomNav() {
     final colors = context.colors;
     return Container(
@@ -885,7 +894,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 false,
                 () => Navigator.of(context).pushNamed('/transactions'),
               ),
-              const SizedBox(width: 48), // FAB space
+              const SizedBox(width: 48),
               _navItem(
                 Icons.pie_chart_outline_rounded,
                 'Budget',
@@ -936,9 +945,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // FAB
-  // ─────────────────────────────────────────
   Widget _buildFAB() {
     final colors = context.colors;
     return FloatingActionButton(
@@ -949,9 +955,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────
-  // HELPERS
-  // ─────────────────────────────────────────
   String _getCurrentMonth() {
     final months = [
       'Jan',
@@ -971,7 +974,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return '${months[now.month - 1]} ${now.year}';
   }
 
-  void _showBudgetAlertsSheet(BudgetModel? budget) {
+  void _showBudgetAlertsSheet(BudgetModel? budget, String currency) {
     final colors = context.colors;
     final alerts = <(String, String, Color)>[];
     if (budget != null) {
@@ -979,24 +982,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         if (b.isExceeded) {
           alerts.add((
             '$name Budget Exceeded',
-            'Spent RM ${b.spent.toStringAsFixed(2)} of RM ${b.limit.toStringAsFixed(2)}.',
+            'Spent ${CurrencyFormatter.format(b.spent, code: currency)} of ${CurrencyFormatter.format(b.limit, code: currency)}.',
             colors.danger,
           ));
         } else if (b.percentageUsed >= 80) {
           alerts.add((
             '$name at ${b.percentageUsed.toStringAsFixed(0)}%',
-            'RM ${b.remaining.toStringAsFixed(2)} remaining this month.',
+            '${CurrencyFormatter.format(b.remaining, code: currency)} remaining this month.',
             colors.warning,
           ));
         }
       }
 
-      checkBucket('Commitments', budget.commitments);
-      checkBucket('Spending', budget.spendings);
+      checkBucket('Essential Needs', budget.commitments);
+      checkBucket('Lifestyle', budget.spendings);
       if (budget.savings.isExceeded) {
         alerts.add((
           'Savings Target Exceeded',
-          'Recorded RM ${budget.savings.spent.toStringAsFixed(2)} vs RM ${budget.savings.limit.toStringAsFixed(2)}.',
+          'Recorded ${CurrencyFormatter.format(budget.savings.spent, code: currency)} vs ${CurrencyFormatter.format(budget.savings.limit, code: currency)}.',
           colors.warning,
         ));
       }

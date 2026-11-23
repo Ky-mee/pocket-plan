@@ -23,12 +23,18 @@ class BudgetCalculator {
     }
 
     // Income increases monthlyAllowance and scales each bucket's limit +
-    // baseLimit using the 50/30/20 split, without touching spent.
+    // baseLimit using the budget's configured split ratios, without touching spent.
     return budget.copyWith(
       monthlyAllowance: budget.monthlyAllowance + tx.amount,
-      commitments: _scaleLimit(budget.commitments, tx.amount * 0.50),
-      spendings: _scaleLimit(budget.spendings, tx.amount * 0.30),
-      savings: _scaleLimit(budget.savings, tx.amount * 0.20),
+      commitments: _scaleLimit(
+        budget.commitments,
+        tx.amount * budget.commitmentRatio,
+      ),
+      spendings: _scaleLimit(
+        budget.spendings,
+        tx.amount * budget.spendingRatio,
+      ),
+      savings: _scaleLimit(budget.savings, tx.amount * budget.savingsRatio),
       updatedAt: DateTime.now(),
     );
   }
@@ -48,9 +54,15 @@ class BudgetCalculator {
       monthlyAllowance: (budget.monthlyAllowance - tx.amount)
           .clamp(0.0, double.infinity)
           .toDouble(),
-      commitments: _scaleLimit(budget.commitments, -tx.amount * 0.50),
-      spendings: _scaleLimit(budget.spendings, -tx.amount * 0.30),
-      savings: _scaleLimit(budget.savings, -tx.amount * 0.20),
+      commitments: _scaleLimit(
+        budget.commitments,
+        -tx.amount * budget.commitmentRatio,
+      ),
+      spendings: _scaleLimit(
+        budget.spendings,
+        -tx.amount * budget.spendingRatio,
+      ),
+      savings: _scaleLimit(budget.savings, -tx.amount * budget.savingsRatio),
       updatedAt: DateTime.now(),
     );
   }
@@ -64,15 +76,57 @@ class BudgetCalculator {
     return applyTransaction(reverseTransaction(budget, oldTx), newTx);
   }
 
-  /// Updates monthly allowance while preserving current spent, carry-forward
-  /// bonuses, custom tracked items, and month.
+  /// Updates monthly income while preserving current spent, carry-forward
+  /// bonuses, custom tracked items, split ratios, and month.
   static BudgetModel updateAllowance(BudgetModel budget, double newAllowance) {
-    final cBase = newAllowance * 0.50;
-    final spBase = newAllowance * 0.30;
-    final svBase = newAllowance * 0.20;
+    final cBase = newAllowance * budget.commitmentRatio;
+    final spBase = newAllowance * budget.spendingRatio;
+    final svBase = newAllowance * budget.savingsRatio;
 
     return budget.copyWith(
       monthlyAllowance: newAllowance,
+      commitments: budget.commitments.copyWith(
+        baseLimit: cBase,
+        limit: cBase + budget.commitments.carriedForward,
+      ),
+      spendings: budget.spendings.copyWith(
+        baseLimit: spBase,
+        limit: spBase + budget.spendings.carriedForward,
+      ),
+      savings: budget.savings.copyWith(
+        baseLimit: svBase,
+        limit: svBase + budget.savings.carriedForward,
+      ),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  /// Updates the bucket split ratios (normalized to sum to 1.0) and
+  /// recalculates each bucket's `baseLimit` and `limit` while keeping spent
+  /// amounts, carry-forward bonuses, and custom items intact.
+  static BudgetModel updateRatios(
+    BudgetModel budget, {
+    required double commitmentRatio,
+    required double spendingRatio,
+    required double savingsRatio,
+  }) {
+    final cRaw = commitmentRatio.clamp(0.0, double.infinity).toDouble();
+    final spRaw = spendingRatio.clamp(0.0, double.infinity).toDouble();
+    final svRaw = savingsRatio.clamp(0.0, double.infinity).toDouble();
+    final total = cRaw + spRaw + svRaw;
+
+    final double c = total > 0 ? cRaw / total : 0.50;
+    final double sp = total > 0 ? spRaw / total : 0.30;
+    final double sv = total > 0 ? svRaw / total : 0.20;
+
+    final cBase = budget.monthlyAllowance * c;
+    final spBase = budget.monthlyAllowance * sp;
+    final svBase = budget.monthlyAllowance * sv;
+
+    return budget.copyWith(
+      commitmentRatio: c,
+      spendingRatio: sp,
+      savingsRatio: sv,
       commitments: budget.commitments.copyWith(
         baseLimit: cBase,
         limit: cBase + budget.commitments.carriedForward,
